@@ -8,14 +8,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rkulczycki/ekwpass/internal/middleware"
+	"github.com/rkulczycki/ekwpass/internal/repositories"
 )
 
 type ReportsHandler struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	arRepo *repositories.ARTransactionRepo
 }
 
-func NewReportsHandler(pool *pgxpool.Pool) *ReportsHandler {
-	return &ReportsHandler{pool: pool}
+func NewReportsHandler(pool *pgxpool.Pool, arRepo *repositories.ARTransactionRepo) *ReportsHandler {
+	return &ReportsHandler{pool: pool, arRepo: arRepo}
 }
 
 type CustomerReportRow struct {
@@ -300,6 +302,30 @@ func (h *ReportsHandler) ARAgingReport(c *gin.Context) {
 	summary.CustomerCount = len(summary.Rows)
 
 	c.JSON(http.StatusOK, summary)
+}
+
+func (h *ReportsHandler) ProcessAging(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	count, err := h.arRepo.ProcessAging(c.Request.Context(), claims.ShopID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process aging"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"customersProcessed": count})
+}
+
+func (h *ReportsHandler) ApplyInterest(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	count, err := h.arRepo.ApplyInterest(c.Request.Context(), claims.ShopID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to apply interest"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"customersCharged": count})
 }
 
 func itoa(n int) string {

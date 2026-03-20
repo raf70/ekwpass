@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Loader2, Users, ClipboardList, BarChart3, DollarSign } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Users, ClipboardList, BarChart3, DollarSign, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getCustomerReport,
   getWorkOrderReport,
   getSummaryReport,
   getARAgingReport,
+  processARAging,
+  applyARInterest,
   type CustomerReportRow,
   type WorkOrderReportRow,
   type SummaryReport,
@@ -313,14 +315,94 @@ function SummaryReportTab() {
 
 function ARAgingReport() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [statusMsg, setStatusMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['report-ar-aging'],
     queryFn: () => getARAgingReport(),
   })
 
+  const agingMutation = useMutation({
+    mutationFn: processARAging,
+    onSuccess: (result) => {
+      setStatusMsg({ text: `Aging processed for ${result.customersProcessed} customer(s).`, ok: true })
+      queryClient.invalidateQueries({ queryKey: ['report-ar-aging'] })
+    },
+    onError: () => {
+      setStatusMsg({ text: 'Failed to process aging. Please try again.', ok: false })
+    },
+  })
+
+  const interestMutation = useMutation({
+    mutationFn: applyARInterest,
+    onSuccess: (result) => {
+      if (result.customersCharged === 0) {
+        setStatusMsg({ text: 'No interest applied — either no overdue balances or interest rate is 0%.', ok: true })
+      } else {
+        setStatusMsg({ text: `Interest charged to ${result.customersCharged} customer(s).`, ok: true })
+      }
+      queryClient.invalidateQueries({ queryKey: ['report-ar-aging'] })
+    },
+    onError: () => {
+      setStatusMsg({ text: 'Failed to apply interest. Please try again.', ok: false })
+    },
+  })
+
+  function handleRunAging() {
+    if (window.confirm('Run aging bucket processing? This will recalculate Current / 30 / 60 / 90+ day buckets for all customers based on their AR transaction dates.')) {
+      setStatusMsg(null)
+      agingMutation.mutate()
+    }
+  }
+
+  function handleApplyInterest() {
+    if (window.confirm('Apply interest charges to all customers with overdue balances (30+ days)? The interest rate from Shop Settings will be used.')) {
+      setStatusMsg(null)
+      interestMutation.mutate()
+    }
+  }
+
+  const busy = agingMutation.isPending || interestMutation.isPending
+
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm">
+          {statusMsg && (
+            <span className={statusMsg.ok ? 'text-green-600' : 'text-red-600'}>
+              {statusMsg.text}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRunAging}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          >
+            {agingMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Run Aging
+          </button>
+          <button
+            onClick={handleApplyInterest}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+          >
+            {interestMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <DollarSign className="h-4 w-4" />
+            )}
+            Apply Interest
+          </button>
+        </div>
+      </div>
+
       {data && (
         <div className="mb-4 grid gap-3 sm:grid-cols-5">
           {[

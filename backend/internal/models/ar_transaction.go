@@ -7,12 +7,13 @@ import (
 )
 
 type ARTransaction struct {
-	ID          uuid.UUID `json:"id"`
-	ShopID      uuid.UUID `json:"shopId"`
-	CustomerID  uuid.UUID `json:"customerId"`
-	Date        time.Time `json:"date"`
-	Description string    `json:"description"`
-	CrDr        string    `json:"crDr"`
-	Amount      float64   `json:"amount"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          uuid.UUID  `json:"id"`
+	ShopID      uuid.UUID  `json:"shopId"`
+	CustomerID  uuid.UUID  `json:"customerId"`
+	WorkOrderID *uuid.UUID `json:"workOrderId"`
+	Date        time.Time  `json:"date"`
+	Description string     `json:"description"`
+	CrDr        string     `json:"crDr"`
+	Amount      float64    `json:"amount"`
+	CreatedAt   time.Time  `json:"createdAt"`
 }

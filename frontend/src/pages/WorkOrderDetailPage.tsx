@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Loader2, Pencil, Phone, Car,
   DollarSign, FileText, Calendar, Plus, Trash2, Wrench,
+  Lock, Unlock, Ban,
 } from 'lucide-react'
-import { getWorkOrder } from '@/api/workOrders'
+import { getWorkOrder, updateWorkOrder } from '@/api/workOrders'
 import {
   getWorkOrderLines, createWorkOrderLine, deleteWorkOrderLine,
   type WorkOrderLine,
@@ -149,6 +150,22 @@ export default function WorkOrderDetailPage() {
     },
   })
 
+  const statusMutation = useMutation({
+    mutationFn: (newStatus: string) => {
+      if (!wo) throw new Error('no work order')
+      return updateWorkOrder(id!, { ...wo, status: newStatus })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-order', id] })
+    },
+  })
+
+  function handleStatusChange(newStatus: string, confirmMsg: string) {
+    if (window.confirm(confirmMsg)) {
+      statusMutation.mutate(newStatus)
+    }
+  }
+
   function handleDeleteLine(line: WorkOrderLine) {
     const label = line.description || line.partCode || 'this part'
     if (window.confirm(`Remove "${label}" from work order?`)) {
@@ -221,14 +238,62 @@ export default function WorkOrderDetailPage() {
             )}
           </div>
         </div>
-        <Link
-          to={`/work-orders/${id}/edit`}
-          className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-        >
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {wo.status === 'open' && (
+            <>
+              <button
+                onClick={() => handleStatusChange('closed', 'Close this work order? If the customer has a charge account, an AR transaction will be posted automatically.')}
+                disabled={statusMutation.isPending}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+              >
+                {statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                Close Work Order
+              </button>
+              <button
+                onClick={() => handleStatusChange('voided', 'Void this work order? This cannot be easily undone.')}
+                disabled={statusMutation.isPending}
+                className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                <Ban className="h-4 w-4" />
+                Void
+              </button>
+            </>
+          )}
+          {wo.status === 'closed' && (
+            <button
+              onClick={() => handleStatusChange('open', 'Reopen this work order? Any auto-posted AR transaction will be reversed.')}
+              disabled={statusMutation.isPending}
+              className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+            >
+              {statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
+              Reopen
+            </button>
+          )}
+          {wo.status === 'voided' && (
+            <button
+              onClick={() => handleStatusChange('open', 'Reopen this voided work order?')}
+              disabled={statusMutation.isPending}
+              className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+            >
+              {statusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlock className="h-4 w-4" />}
+              Reopen
+            </button>
+          )}
+          <Link
+            to={`/work-orders/${id}/edit`}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Link>
+        </div>
       </div>
+
+      {statusMutation.isError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Failed to update work order status. Please try again.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Customer */}

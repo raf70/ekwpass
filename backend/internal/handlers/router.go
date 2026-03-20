@@ -27,7 +27,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	authService := services.NewAuthService(userRepo, shopRepo, cfg.JWTSecret)
 	customerService := services.NewCustomerService(customerRepo)
 	vehicleService := services.NewVehicleService(vehicleRepo)
-	workOrderService := services.NewWorkOrderService(workOrderRepo)
+	workOrderService := services.NewWorkOrderService(workOrderRepo, customerRepo, arRepo)
 	partService := services.NewPartService(partRepo)
 	supplierService := services.NewSupplierService(supplierRepo)
 
@@ -39,7 +39,9 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	woLineH := NewWorkOrderLineHandler(workOrderLineRepo)
 	partH := NewPartHandler(partService)
 	supplierH := NewSupplierHandler(supplierService, partService, apRepo)
-	reportsH := NewReportsHandler(pool)
+	shopSettingsRepo := repositories.NewShopSettingsRepo(pool)
+	reportsH := NewReportsHandler(pool, arRepo)
+	settingsH := NewSettingsHandler(shopSettingsRepo)
 
 	api := r.Group("/api")
 	api.GET("/health", healthH.Health)
@@ -95,6 +97,11 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	reports.GET("/work-orders", reportsH.WorkOrderReport)
 	reports.GET("/summary", reportsH.SummaryReport)
 	reports.GET("/ar-aging", reportsH.ARAgingReport)
+	reports.POST("/ar-aging/process", reportsH.ProcessAging)
+	reports.POST("/ar-aging/interest", reportsH.ApplyInterest)
+
+	protected.GET("/settings", settingsH.Get)
+	protected.PUT("/settings", settingsH.Update)
 
 	vehicles := protected.Group("/vehicles")
 	vehicles.POST("", vehicleH.Create)

@@ -92,3 +92,13 @@ export async function getARAgingReport(): Promise<ARAgingSummary> {
   const { data } = await client.get<ARAgingSummary>('/api/reports/ar-aging')
   return data
 }
+
+export async function processARAging(): Promise<{ customersProcessed: number }> {
+  const { data } = await client.post<{ customersProcessed: number }>('/api/reports/ar-aging/process')
+  return data
+}
+
+export async function applyARInterest(): Promise<{ customersCharged: number }> {
+  const { data } = await client.post<{ customersCharged: number }>('/api/reports/ar-aging/interest')
+  return data
+}

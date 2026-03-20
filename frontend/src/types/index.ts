@@ -187,6 +187,7 @@ export interface ARTransaction {
   id: string
   shopId: string
   customerId: string
+  workOrderId: string | null
   date: string
   description: string
   crDr: string

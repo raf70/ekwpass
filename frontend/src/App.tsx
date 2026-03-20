@@ -18,6 +18,7 @@ import SuppliersPage from './pages/SuppliersPage'
 import SupplierDetailPage from './pages/SupplierDetailPage'
 import SupplierFormPage from './pages/SupplierFormPage'
 import ReportsPage from './pages/ReportsPage'
+import SettingsPage from './pages/SettingsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 function ProtectedRoute() {
@@ -64,7 +65,7 @@ export default function App() {
         <Route path="work-orders/:id/edit" element={<WorkOrderFormPage />} />
         <Route path="sales" element={<PlaceholderPage title="Sales" />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   )

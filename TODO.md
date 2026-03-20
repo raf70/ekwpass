@@ -5,16 +5,17 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 ## Accounts Receivable (AR)
 
 - [x] **Import legacy AR transactions (CAR20.DBF)** — add import step to `migrate-legacy` for historical AR transaction data
-- [ ] **Auto-post from work orders** — when a work order is closed, automatically create a DR transaction in AR for the invoice total (charge-account customers)
-- [ ] **Aging bucket processing (month-end)** — roll balances: current → 30 → 60 → 90 days overdue; update customer `ar_current`, `ar_30`, `ar_60`, `ar_90` fields
-- [ ] **Interest charges** — apply `shop_settings.ar_interest_rate` to overdue balances (30+ days) during month-end processing
+- [x] **Auto-post from work orders** — when a work order is closed, automatically create a DR transaction in AR for the invoice total (charge-account customers)
+- [ ] **Revisit AR auto-post scope** — currently only posts for customers with `credit_limit > 0`; decide whether all customers should get AR entries or keep legacy charge-account-only behavior
+- [x] **Aging bucket processing (month-end)** — roll balances: current → 30 → 60 → 90 days overdue; update customer `ar_current`, `ar_30`, `ar_60`, `ar_90` fields
+- [x] **Interest charges** — apply `shop_settings.ar_interest_rate` to overdue balances (30+ days) during month-end processing
 - [ ] **Statement generation** — generate/print customer AR statements; update `ar_stmt_balance` and `ar_stmt_flag`
 - [ ] **AR delay processing** — wire `shop_settings.ar_delay_processing` flag to control whether aging runs immediately or is deferred
 
 ## Modules Still on Placeholder Pages
 
 - [ ] **Sales (counter/POS)** — full CRUD, similar to how Suppliers was implemented
-- [ ] **Settings** — shop settings management UI (tax rates, shop supplies rate, payment types, invoice numbering, etc.)
+- [x] **Settings** — shop settings management UI (tax rates, shop supplies rate, payment types, invoice numbering, etc.)
 
 ## Data Migration
 
