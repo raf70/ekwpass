@@ -5,7 +5,7 @@ import {
   ArrowLeft, Loader2, Pencil, Trash2, Phone, MapPin, Car,
   Shield, DollarSign, FileText, Plus,
 } from 'lucide-react'
-import { getCustomer, deleteCustomer, getCustomerVehicles } from '@/api/customers'
+import { getCustomer, deleteCustomer, getCustomerVehicles, getCustomerARTransactions, createARTransaction } from '@/api/customers'
 import { createVehicle, deleteVehicle } from '@/api/vehicles'
 
 function fmt$(amount: number) {
@@ -57,8 +57,16 @@ export default function CustomerDetailPage() {
     enabled: !!id,
   })
 
+  const { data: arTransactions } = useQuery({
+    queryKey: ['customer-ar', id],
+    queryFn: () => getCustomerARTransactions(id!),
+    enabled: !!id,
+  })
+
   const [showAddVehicle, setShowAddVehicle] = useState(false)
   const [newVeh, setNewVeh] = useState({ make: '', model: '', year: '', vin: '', plate: '', color: '' })
+  const [showARForm, setShowARForm] = useState(false)
+  const [arForm, setARForm] = useState({ date: new Date().toISOString().slice(0, 10), description: '', crDr: 'CR' as 'CR' | 'DR', amount: '' })
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteCustomer(id!),
@@ -90,6 +98,22 @@ export default function CustomerDetailPage() {
     mutationFn: (vehicleId: string) => deleteVehicle(vehicleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-vehicles', id] })
+    },
+  })
+
+  const addARMutation = useMutation({
+    mutationFn: () =>
+      createARTransaction(id!, {
+        date: arForm.date,
+        description: arForm.description,
+        crDr: arForm.crDr,
+        amount: parseFloat(arForm.amount) || 0,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer-ar', id] })
+      queryClient.invalidateQueries({ queryKey: ['customer', id] })
+      setARForm({ date: new Date().toISOString().slice(0, 10), description: '', crDr: 'CR', amount: '' })
+      setShowARForm(false)
     },
   })
 
@@ -385,6 +409,142 @@ export default function CustomerDetailPage() {
           <div className="py-10 text-center text-sm text-slate-400">
             <Car className="mx-auto mb-2 h-8 w-8" />
             No vehicles on file
+          </div>
+        )}
+      </section>
+
+      {/* AR Transactions */}
+      <section className="mt-6 rounded-xl border bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <DollarSign className="h-4 w-4 text-slate-400" />
+            AR Transactions
+            <span className="ml-1 text-sm font-normal text-slate-400">({arTransactions?.length ?? 0})</span>
+          </h2>
+          {!showARForm && (
+            <button
+              onClick={() => setShowARForm(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <Plus className="h-4 w-4" />
+              Record Transaction
+            </button>
+          )}
+        </div>
+
+        {showARForm && (
+          <div className="border-b px-6 py-4">
+            <div className="mb-3 flex gap-2">
+              <button
+                onClick={() => setARForm((f) => ({ ...f, crDr: 'CR' }))}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                  arForm.crDr === 'CR'
+                    ? 'bg-green-600 text-white'
+                    : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Payment (CR)
+              </button>
+              <button
+                onClick={() => setARForm((f) => ({ ...f, crDr: 'DR' }))}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                  arForm.crDr === 'DR'
+                    ? 'bg-blue-600 text-white'
+                    : 'border border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Charge (DR)
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <input
+                type="date"
+                value={arForm.date}
+                onChange={(e) => setARForm((f) => ({ ...f, date: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+              <input
+                type="text"
+                placeholder="Description *"
+                value={arForm.description}
+                onChange={(e) => setARForm((f) => ({ ...f, description: e.target.value }))}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="Amount *"
+                  value={arForm.amount}
+                  onChange={(e) => setARForm((f) => ({ ...f, amount: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-7 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                onClick={() => { setShowARForm(false); setARForm({ date: new Date().toISOString().slice(0, 10), description: '', crDr: 'CR', amount: '' }) }}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => addARMutation.mutate()}
+                disabled={!arForm.description || !arForm.amount || addARMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                {addARMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {arTransactions && arTransactions.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50">
+                  <th className="px-6 py-3 font-medium text-slate-500">Date</th>
+                  <th className="px-6 py-3 font-medium text-slate-500">Description</th>
+                  <th className="px-6 py-3 font-medium text-slate-500">Type</th>
+                  <th className="px-6 py-3 text-right font-medium text-slate-500">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arTransactions.map((t) => (
+                  <tr key={t.id} className="border-b last:border-0">
+                    <td className="px-6 py-3 text-slate-900">{fmtDate(t.date)}</td>
+                    <td className="px-6 py-3 text-slate-600">{t.description}</td>
+                    <td className="px-6 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                          t.crDr === 'CR'
+                            ? 'bg-green-50 text-green-700'
+                            : 'bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        {t.crDr === 'CR' ? 'Payment' : 'Charge'}
+                      </span>
+                    </td>
+                    <td className={`px-6 py-3 text-right font-medium ${t.crDr === 'CR' ? 'text-green-700' : 'text-slate-900'}`}>
+                      {t.crDr === 'CR' ? '−' : ''}{fmt$(t.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-10 text-center text-sm text-slate-400">
+            <DollarSign className="mx-auto mb-2 h-8 w-8" />
+            No AR transactions
           </div>
         )}
       </section>

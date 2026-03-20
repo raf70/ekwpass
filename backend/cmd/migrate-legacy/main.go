@@ -130,6 +130,7 @@ func importAll(ctx context.Context, pool *pgxpool.Pool, shopID uuid.UUID, dataDi
 		{"Work Orders (Open)", "WIPMAST.DBF", importOpenOrders},
 		{"Work Order Lines (Open)", "WIPDTL.DBF", importOpenLines},
 		{"Sales", "SALEFILE.DBF", importSales},
+		{"AR Transactions", "CAR20.DBF", importARTransactions},
 		{"AP Transactions", "SAP.DBF", importAPTransactions},
 		{"Recalls", "RECALL.DBF", importRecalls},
 		{"Audit Logs", "AUDIT.DBF", importAuditLogs},

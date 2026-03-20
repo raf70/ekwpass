@@ -14,6 +14,9 @@ import WorkOrderFormPage from './pages/WorkOrderFormPage'
 import PartsPage from './pages/PartsPage'
 import PartDetailPage from './pages/PartDetailPage'
 import PartFormPage from './pages/PartFormPage'
+import SuppliersPage from './pages/SuppliersPage'
+import SupplierDetailPage from './pages/SupplierDetailPage'
+import SupplierFormPage from './pages/SupplierFormPage'
 import ReportsPage from './pages/ReportsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
@@ -51,7 +54,10 @@ export default function App() {
         <Route path="parts/new" element={<PartFormPage />} />
         <Route path="parts/:id" element={<PartDetailPage />} />
         <Route path="parts/:id/edit" element={<PartFormPage />} />
-        <Route path="suppliers" element={<PlaceholderPage title="Suppliers" />} />
+        <Route path="suppliers" element={<SuppliersPage />} />
+        <Route path="suppliers/new" element={<SupplierFormPage />} />
+        <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+        <Route path="suppliers/:id/edit" element={<SupplierFormPage />} />
         <Route path="work-orders" element={<WorkOrdersPage />} />
         <Route path="work-orders/new" element={<WorkOrderFormPage />} />
         <Route path="work-orders/:id" element={<WorkOrderDetailPage />} />

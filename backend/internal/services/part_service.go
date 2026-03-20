@@ -36,6 +36,10 @@ func (s *PartService) Update(ctx context.Context, p *models.Part) error {
 	return s.repo.Update(ctx, p)
 }
 
+func (s *PartService) ListBySupplier(ctx context.Context, shopID, supplierID uuid.UUID) ([]models.Part, error) {
+	return s.repo.ListBySupplier(ctx, shopID, supplierID)
+}
+
 func (s *PartService) Delete(ctx context.Context, shopID, id uuid.UUID) error {
 	return s.repo.Delete(ctx, shopID, id)
 }

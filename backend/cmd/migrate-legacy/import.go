@@ -488,6 +488,57 @@ func importSales(ctx context.Context, pool *pgxpool.Pool, lu *Lookups, path stri
 }
 
 // ---------------------------------------------------------------------------
+// AR Transactions (CAR20.DBF → ar_transactions)
+// ---------------------------------------------------------------------------
+
+func importARTransactions(ctx context.Context, pool *pgxpool.Pool, lu *Lookups, path string) (int, error) {
+	dbf, err := OpenDBF(path)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, r := range dbf.Records() {
+		phone := getString(r, "ARPHONE")
+		if phone == "" {
+			continue
+		}
+		customerID, ok := lu.PhoneToCustomer[phone]
+		if !ok {
+			if verbose {
+				log.Printf("    AR customer phone %q not found", phone)
+			}
+			continue
+		}
+
+		crdr := strings.ToUpper(getString(r, "ARCRDR"))
+		switch crdr {
+		case "CR", "DR":
+		case "C":
+			crdr = "CR"
+		default:
+			crdr = "DR"
+		}
+
+		id := uuid.New()
+		_, err := pool.Exec(ctx, `
+			INSERT INTO ar_transactions (
+				id, shop_id, customer_id, date, description, cr_dr, amount
+			) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+			id, lu.ShopID, customerID,
+			getDateOrNow(r, "ARDATE"),
+			getString(r, "ARDESC"),
+			crdr, getFloat(r, "ARAMT"),
+		)
+		if err != nil {
+			log.Printf("    AR %s: %v", phone, err)
+			continue
+		}
+		count++
+	}
+	return count, nil
+}
+
+// ---------------------------------------------------------------------------
 // AP Transactions (SAP.DBF → ap_transactions)
 // ---------------------------------------------------------------------------
 

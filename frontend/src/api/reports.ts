@@ -65,3 +65,30 @@ export async function getSummaryReport(params: {
   const { data } = await client.get<SummaryReport>('/api/reports/summary', { params })
   return data
 }
+
+export interface ARAgingRow {
+  customerId: string
+  customerName: string
+  phone: string
+  city: string
+  current: number
+  days30: number
+  days60: number
+  days90: number
+  total: number
+}
+
+export interface ARAgingSummary {
+  rows: ARAgingRow[]
+  totalCurrent: number
+  total30: number
+  total60: number
+  total90: number
+  grandTotal: number
+  customerCount: number
+}
+
+export async function getARAgingReport(): Promise<ARAgingSummary> {
+  const { data } = await client.get<ARAgingSummary>('/api/reports/ar-aging')
+  return data
+}

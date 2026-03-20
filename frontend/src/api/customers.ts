@@ -1,5 +1,5 @@
 import client from './client'
-import type { Customer, PaginatedResponse, PaginationParams, Vehicle } from '@/types'
+import type { Customer, ARTransaction, PaginatedResponse, PaginationParams, Vehicle } from '@/types'
 
 export async function getCustomers(
   params: Partial<PaginationParams>,
@@ -29,5 +29,18 @@ export async function deleteCustomer(id: string): Promise<void> {
 
 export async function getCustomerVehicles(customerId: string): Promise<Vehicle[]> {
   const { data } = await client.get<Vehicle[]>(`/api/customers/${customerId}/vehicles`)
+  return data
+}
+
+export async function getCustomerARTransactions(customerId: string): Promise<ARTransaction[]> {
+  const { data } = await client.get<ARTransaction[]>(`/api/customers/${customerId}/ar-transactions`)
+  return data
+}
+
+export async function createARTransaction(
+  customerId: string,
+  txn: { date: string; description: string; crDr: string; amount: number },
+): Promise<ARTransaction> {
+  const { data } = await client.post<ARTransaction>(`/api/customers/${customerId}/ar-transactions`, txn)
   return data
 }
