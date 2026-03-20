@@ -255,6 +255,36 @@ func (r *ARTransactionRepo) ApplyInterest(ctx context.Context, shopID uuid.UUID)
 	return count, nil
 }
 
+func (r *ARTransactionRepo) MarkStatements(ctx context.Context, shopID uuid.UUID) (int, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE customers SET
+			ar_stmt_balance = ar_balance,
+			ar_stmt_flag = true,
+			updated_at = NOW()
+		WHERE shop_id = $1 AND ar_balance != 0`,
+		shopID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("mark statements: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (r *ARTransactionRepo) MarkStatement(ctx context.Context, shopID, customerID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE customers SET
+			ar_stmt_balance = ar_balance,
+			ar_stmt_flag = true,
+			updated_at = NOW()
+		WHERE id = $1 AND shop_id = $2`,
+		customerID, shopID,
+	)
+	if err != nil {
+		return fmt.Errorf("mark statement: %w", err)
+	}
+	return nil
+}
+
 func (r *ARTransactionRepo) UpdateCustomerBalance(ctx context.Context, shopID, customerID uuid.UUID) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE customers SET

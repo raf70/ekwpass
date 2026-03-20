@@ -102,3 +102,8 @@ export async function applyARInterest(): Promise<{ customersCharged: number }> {
   const { data } = await client.post<{ customersCharged: number }>('/api/reports/ar-aging/interest')
   return data
 }
+
+export async function generateStatements(): Promise<{ statementsGenerated: number }> {
+  const { data } = await client.post<{ statementsGenerated: number }>('/api/reports/ar-aging/statements')
+  return data
+}

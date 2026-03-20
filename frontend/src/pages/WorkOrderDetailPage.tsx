@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Loader2, Pencil, Phone, Car,
   DollarSign, FileText, Calendar, Plus, Trash2, Wrench,
-  Lock, Unlock, Ban,
+  Lock, Unlock, Ban, Printer,
 } from 'lucide-react'
 import { getWorkOrder, updateWorkOrder } from '@/api/workOrders'
 import {
@@ -279,6 +279,13 @@ export default function WorkOrderDetailPage() {
               Reopen
             </button>
           )}
+          <Link
+            to={`/work-orders/${id}/invoice`}
+            className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <Printer className="h-4 w-4" />
+            Invoice
+          </Link>
           <Link
             to={`/work-orders/${id}/edit`}
             className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"

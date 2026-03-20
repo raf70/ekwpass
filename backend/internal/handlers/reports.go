@@ -328,6 +328,18 @@ func (h *ReportsHandler) ApplyInterest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"customersCharged": count})
 }
 
+func (h *ReportsHandler) GenerateStatements(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	count, err := h.arRepo.MarkStatements(c.Request.Context(), claims.ShopID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate statements"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"statementsGenerated": count})
+}
+
 func itoa(n int) string {
 	return strconv.Itoa(n)
 }

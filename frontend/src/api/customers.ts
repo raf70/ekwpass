@@ -44,3 +44,31 @@ export async function createARTransaction(
   const { data } = await client.post<ARTransaction>(`/api/customers/${customerId}/ar-transactions`, txn)
   return data
 }
+
+export interface ARStatement {
+  shopName: string
+  shopAddress: string
+  shopCity: string
+  shopProvince: string
+  shopPostalCode: string
+  shopPhone: string
+  customerName: string
+  customerPhone: string
+  customerStreet: string
+  customerCity: string
+  customerProvince: string
+  customerPostalCode: string
+  statementDate: string
+  previousBalance: number
+  transactions: ARTransaction[]
+  arBalance: number
+  arCurrent: number
+  ar30: number
+  ar60: number
+  ar90: number
+}
+
+export async function getCustomerStatement(customerId: string): Promise<ARStatement> {
+  const { data } = await client.get<ARStatement>(`/api/customers/${customerId}/statement`)
+  return data
+}

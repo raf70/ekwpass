@@ -9,7 +9,7 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [ ] **Revisit AR auto-post scope** — currently only posts for customers with `credit_limit > 0`; decide whether all customers should get AR entries or keep legacy charge-account-only behavior
 - [x] **Aging bucket processing (month-end)** — roll balances: current → 30 → 60 → 90 days overdue; update customer `ar_current`, `ar_30`, `ar_60`, `ar_90` fields
 - [x] **Interest charges** — apply `shop_settings.ar_interest_rate` to overdue balances (30+ days) during month-end processing
-- [ ] **Statement generation** — generate/print customer AR statements; update `ar_stmt_balance` and `ar_stmt_flag`
+- [x] **Statement generation** — generate/print customer AR statements; update `ar_stmt_balance` and `ar_stmt_flag`
 - [ ] **AR delay processing** — wire `shop_settings.ar_delay_processing` flag to control whether aging runs immediately or is deferred
 
 ## Modules Still on Placeholder Pages
@@ -28,4 +28,5 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [ ] **Service recalls/reminders** — UI for viewing and managing recall records
 - [ ] **Audit log viewer** — UI to browse imported and new audit log entries
 - [ ] **User management** — add/edit/deactivate users, role assignment
-- [ ] **Print/export** — invoice printing, report export (PDF/CSV)
+- [x] **Invoice printing** — printable invoice from work order detail page with parts, labour, and tax breakdown
+- [ ] **Report export** — report export (PDF/CSV)

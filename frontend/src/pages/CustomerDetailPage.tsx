@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Loader2, Pencil, Trash2, Phone, MapPin, Car,
-  Shield, DollarSign, FileText, Plus,
+  Shield, DollarSign, FileText, Plus, Printer,
 } from 'lucide-react'
 import { getCustomer, deleteCustomer, getCustomerVehicles, getCustomerARTransactions, createARTransaction } from '@/api/customers'
 import { createVehicle, deleteVehicle } from '@/api/vehicles'
@@ -187,6 +187,15 @@ export default function CustomerDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {customer.arBalance !== 0 && (
+            <Link
+              to={`/customers/${id}/statement`}
+              className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <Printer className="h-4 w-4" />
+              Statement
+            </Link>
+          )}
           <Link
             to={`/customers/${id}/edit`}
             className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"

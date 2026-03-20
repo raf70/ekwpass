@@ -14,12 +14,13 @@ import (
 )
 
 type CustomerHandler struct {
-	service *services.CustomerService
-	arRepo  *repositories.ARTransactionRepo
+	service  *services.CustomerService
+	arRepo   *repositories.ARTransactionRepo
+	shopRepo *repositories.ShopRepo
 }
 
-func NewCustomerHandler(service *services.CustomerService, arRepo *repositories.ARTransactionRepo) *CustomerHandler {
-	return &CustomerHandler{service: service, arRepo: arRepo}
+func NewCustomerHandler(service *services.CustomerService, arRepo *repositories.ARTransactionRepo, shopRepo *repositories.ShopRepo) *CustomerHandler {
+	return &CustomerHandler{service: service, arRepo: arRepo, shopRepo: shopRepo}
 }
 
 func (h *CustomerHandler) List(c *gin.Context) {
@@ -211,4 +212,87 @@ func (h *CustomerHandler) CreateARTransaction(c *gin.Context) {
 	h.arRepo.UpdateCustomerBalance(ctx, claims.ShopID, customerID)
 
 	c.JSON(http.StatusCreated, txn)
+}
+
+type StatementResponse struct {
+	ShopName       string                  `json:"shopName"`
+	ShopAddress    string                  `json:"shopAddress"`
+	ShopCity       string                  `json:"shopCity"`
+	ShopProvince   string                  `json:"shopProvince"`
+	ShopPostalCode string                  `json:"shopPostalCode"`
+	ShopPhone      string                  `json:"shopPhone"`
+	CustomerName   string                  `json:"customerName"`
+	CustomerPhone  string                  `json:"customerPhone"`
+	CustomerStreet string                  `json:"customerStreet"`
+	CustomerCity   string                  `json:"customerCity"`
+	CustomerProv   string                  `json:"customerProvince"`
+	CustomerPostal string                  `json:"customerPostalCode"`
+	StatementDate  string                  `json:"statementDate"`
+	PreviousBalance float64               `json:"previousBalance"`
+	Transactions   []models.ARTransaction  `json:"transactions"`
+	ARBalance      float64                 `json:"arBalance"`
+	ARCurrent      float64                 `json:"arCurrent"`
+	AR30           float64                 `json:"ar30"`
+	AR60           float64                 `json:"ar60"`
+	AR90           float64                 `json:"ar90"`
+}
+
+func (h *CustomerHandler) GetStatement(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	customerID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer id"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	cust, err := h.service.FindByID(ctx, claims.ShopID, customerID)
+	if err != nil || cust == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "customer not found"})
+		return
+	}
+
+	shop, err := h.shopRepo.FindByID(ctx, claims.ShopID)
+	if err != nil || shop == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load shop"})
+		return
+	}
+
+	txns, err := h.arRepo.ListByCustomer(ctx, claims.ShopID, customerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load transactions"})
+		return
+	}
+	if txns == nil {
+		txns = []models.ARTransaction{}
+	}
+
+	h.arRepo.MarkStatement(ctx, claims.ShopID, customerID)
+
+	resp := StatementResponse{
+		ShopName:        shop.Name,
+		ShopAddress:     shop.Address,
+		ShopCity:        shop.City,
+		ShopProvince:    shop.Province,
+		ShopPostalCode:  shop.PostalCode,
+		ShopPhone:       shop.Phone,
+		CustomerName:    cust.Name,
+		CustomerPhone:   cust.Phone,
+		CustomerStreet:  cust.Street,
+		CustomerCity:    cust.City,
+		CustomerProv:    cust.Province,
+		CustomerPostal:  cust.PostalCode,
+		StatementDate:   time.Now().Format("2006-01-02"),
+		PreviousBalance: cust.ARStmtBalance,
+		Transactions:    txns,
+		ARBalance:       cust.ARBalance,
+		ARCurrent:       cust.ARCurrent,
+		AR30:            cust.AR30,
+		AR60:            cust.AR60,
+		AR90:            cust.AR90,
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

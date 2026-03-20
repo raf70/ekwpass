@@ -33,7 +33,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 
 	healthH := NewHealthHandler()
 	authH := NewAuthHandler(authService)
-	customerH := NewCustomerHandler(customerService, arRepo)
+	customerH := NewCustomerHandler(customerService, arRepo, shopRepo)
 	vehicleH := NewVehicleHandler(vehicleService)
 	workOrderH := NewWorkOrderHandler(workOrderService)
 	woLineH := NewWorkOrderLineHandler(workOrderLineRepo)
@@ -65,6 +65,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	customers.GET("/:id/vehicles", vehicleH.ListByCustomer)
 	customers.GET("/:id/ar-transactions", customerH.ListARTransactions)
 	customers.POST("/:id/ar-transactions", customerH.CreateARTransaction)
+	customers.GET("/:id/statement", customerH.GetStatement)
 
 	workOrders := protected.Group("/work-orders")
 	workOrders.GET("", workOrderH.List)
@@ -99,7 +100,17 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	reports.GET("/ar-aging", reportsH.ARAgingReport)
 	reports.POST("/ar-aging/process", reportsH.ProcessAging)
 	reports.POST("/ar-aging/interest", reportsH.ApplyInterest)
+	reports.POST("/ar-aging/statements", reportsH.GenerateStatements)
 
+	protected.GET("/shop", func(c *gin.Context) {
+		claims := middleware.GetClaims(c)
+		shop, err := shopRepo.FindByID(c.Request.Context(), claims.ShopID)
+		if err != nil || shop == nil {
+			c.JSON(500, gin.H{"error": "failed to load shop"})
+			return
+		}
+		c.JSON(200, shop)
+	})
 	protected.GET("/settings", settingsH.Get)
 	protected.PUT("/settings", settingsH.Update)
 

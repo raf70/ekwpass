@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Users, ClipboardList, BarChart3, DollarSign, RefreshCw } from 'lucide-react'
+import { Loader2, Users, ClipboardList, BarChart3, DollarSign, RefreshCw, FileText } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getCustomerReport,
@@ -9,6 +9,7 @@ import {
   getARAgingReport,
   processARAging,
   applyARInterest,
+  generateStatements,
   type CustomerReportRow,
   type WorkOrderReportRow,
   type SummaryReport,
@@ -356,6 +357,17 @@ function ARAgingReport() {
     }
   }
 
+  const stmtMutation = useMutation({
+    mutationFn: generateStatements,
+    onSuccess: (result) => {
+      setStatusMsg({ text: `Statements generated for ${result.statementsGenerated} customer(s).`, ok: true })
+      queryClient.invalidateQueries({ queryKey: ['report-ar-aging'] })
+    },
+    onError: () => {
+      setStatusMsg({ text: 'Failed to generate statements. Please try again.', ok: false })
+    },
+  })
+
   function handleApplyInterest() {
     if (window.confirm('Apply interest charges to all customers with overdue balances (30+ days)? The interest rate from Shop Settings will be used.')) {
       setStatusMsg(null)
@@ -363,7 +375,14 @@ function ARAgingReport() {
     }
   }
 
-  const busy = agingMutation.isPending || interestMutation.isPending
+  function handleGenerateStatements() {
+    if (window.confirm('Mark statements for all customers with outstanding AR balances? This updates their statement balance and flag.')) {
+      setStatusMsg(null)
+      stmtMutation.mutate()
+    }
+  }
+
+  const busy = agingMutation.isPending || interestMutation.isPending || stmtMutation.isPending
 
   return (
     <div>
@@ -399,6 +418,18 @@ function ARAgingReport() {
               <DollarSign className="h-4 w-4" />
             )}
             Apply Interest
+          </button>
+          <button
+            onClick={handleGenerateStatements}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            {stmtMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            Generate Statements
           </button>
         </div>
       </div>

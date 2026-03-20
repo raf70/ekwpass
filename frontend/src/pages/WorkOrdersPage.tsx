@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Search, ClipboardList, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getWorkOrders } from '@/api/workOrders'
@@ -26,11 +26,12 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function WorkOrdersPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(searchParams.get('status') ?? '')
 
   useEffect(() => {
     const timer = setTimeout(() => {

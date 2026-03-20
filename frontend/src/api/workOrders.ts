@@ -1,5 +1,5 @@
 import client from './client'
-import type { WorkOrder, PaginatedResponse, PaginationParams } from '@/types'
+import type { WorkOrder, PaginatedResponse, PaginationParams, Shop } from '@/types'
 
 export async function getWorkOrders(
   params: Partial<PaginationParams> & { status?: string },
@@ -20,5 +20,10 @@ export async function createWorkOrder(wo: Partial<WorkOrder>): Promise<WorkOrder
 
 export async function updateWorkOrder(id: string, wo: Partial<WorkOrder>): Promise<WorkOrder> {
   const { data } = await client.put<WorkOrder>(`/api/work-orders/${id}`, wo)
+  return data
+}
+
+export async function getShopInfo(): Promise<Shop> {
+  const { data } = await client.get<Shop>('/api/shop')
   return data
 }
