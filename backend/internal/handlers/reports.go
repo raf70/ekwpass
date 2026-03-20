@@ -231,6 +231,77 @@ func (h *ReportsHandler) SummaryReport(c *gin.Context) {
 	c.JSON(http.StatusOK, r)
 }
 
+type ARAgingRow struct {
+	CustomerID   string  `json:"customerId"`
+	CustomerName string  `json:"customerName"`
+	Phone        string  `json:"phone"`
+	City         string  `json:"city"`
+	Current      float64 `json:"current"`
+	Days30       float64 `json:"days30"`
+	Days60       float64 `json:"days60"`
+	Days90       float64 `json:"days90"`
+	Total        float64 `json:"total"`
+}
+
+type ARAgingSummary struct {
+	Rows         []ARAgingRow `json:"rows"`
+	TotalCurrent float64      `json:"totalCurrent"`
+	Total30      float64      `json:"total30"`
+	Total60      float64      `json:"total60"`
+	Total90      float64      `json:"total90"`
+	GrandTotal   float64      `json:"grandTotal"`
+	CustomerCount int         `json:"customerCount"`
+}
+
+func (h *ReportsHandler) ARAgingReport(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	query := `
+		SELECT
+			id::text,
+			COALESCE(name, ''), COALESCE(phone, ''), COALESCE(city, ''),
+			COALESCE(ar_current, 0), COALESCE(ar_30, 0),
+			COALESCE(ar_60, 0), COALESCE(ar_90, 0),
+			COALESCE(ar_balance, 0)
+		FROM customers
+		WHERE shop_id = $1 AND ar_balance != 0
+		ORDER BY ar_balance DESC`
+
+	rows, err := h.pool.Query(c.Request.Context(), query, claims.ShopID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query AR aging"})
+		return
+	}
+	defer rows.Close()
+
+	summary := ARAgingSummary{}
+	for rows.Next() {
+		var r ARAgingRow
+		if err := rows.Scan(
+			&r.CustomerID,
+			&r.CustomerName, &r.Phone, &r.City,
+			&r.Current, &r.Days30, &r.Days60, &r.Days90,
+			&r.Total,
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to scan row"})
+			return
+		}
+		summary.Rows = append(summary.Rows, r)
+		summary.TotalCurrent += r.Current
+		summary.Total30 += r.Days30
+		summary.Total60 += r.Days60
+		summary.Total90 += r.Days90
+		summary.GrandTotal += r.Total
+	}
+
+	if summary.Rows == nil {
+		summary.Rows = []ARAgingRow{}
+	}
+	summary.CustomerCount = len(summary.Rows)
+
+	c.JSON(http.StatusOK, summary)
+}
+
 func itoa(n int) string {
 	return strconv.Itoa(n)
 }

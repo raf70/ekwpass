@@ -3,20 +3,23 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rkulczycki/ekwpass/internal/middleware"
 	"github.com/rkulczycki/ekwpass/internal/models"
+	"github.com/rkulczycki/ekwpass/internal/repositories"
 	"github.com/rkulczycki/ekwpass/internal/services"
 )
 
 type CustomerHandler struct {
 	service *services.CustomerService
+	arRepo  *repositories.ARTransactionRepo
 }
 
-func NewCustomerHandler(service *services.CustomerService) *CustomerHandler {
-	return &CustomerHandler{service: service}
+func NewCustomerHandler(service *services.CustomerService, arRepo *repositories.ARTransactionRepo) *CustomerHandler {
+	return &CustomerHandler{service: service, arRepo: arRepo}
 }
 
 func (h *CustomerHandler) List(c *gin.Context) {
@@ -134,4 +137,78 @@ func (h *CustomerHandler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func (h *CustomerHandler) ListARTransactions(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer id"})
+		return
+	}
+
+	txns, err := h.arRepo.ListByCustomer(c.Request.Context(), claims.ShopID, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list AR transactions"})
+		return
+	}
+
+	if txns == nil {
+		txns = []models.ARTransaction{}
+	}
+	c.JSON(http.StatusOK, txns)
+}
+
+type CreateARTransactionRequest struct {
+	Date        string  `json:"date" binding:"required"`
+	Description string  `json:"description" binding:"required"`
+	CrDr        string  `json:"crDr" binding:"required"`
+	Amount      float64 `json:"amount" binding:"required"`
+}
+
+func (h *CustomerHandler) CreateARTransaction(c *gin.Context) {
+	claims := middleware.GetClaims(c)
+
+	customerID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer id"})
+		return
+	}
+
+	var req CreateARTransactionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if req.CrDr != "CR" && req.CrDr != "DR" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "crDr must be CR or DR"})
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", req.Date)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid date format, use YYYY-MM-DD"})
+		return
+	}
+
+	txn := models.ARTransaction{
+		ShopID:      claims.ShopID,
+		CustomerID:  customerID,
+		Date:        date,
+		Description: req.Description,
+		CrDr:        req.CrDr,
+		Amount:      req.Amount,
+	}
+
+	ctx := c.Request.Context()
+	if err := h.arRepo.Create(ctx, &txn); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create AR transaction"})
+		return
+	}
+
+	h.arRepo.UpdateCustomerBalance(ctx, claims.ShopID, customerID)
+
+	c.JSON(http.StatusCreated, txn)
 }

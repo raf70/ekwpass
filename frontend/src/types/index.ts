@@ -159,6 +159,55 @@ export interface Part {
   updatedAt: string
 }
 
+export interface Supplier {
+  id: string
+  shopId: string
+  code: string
+  name: string
+  address1: string
+  address2: string
+  city: string
+  province: string
+  postalCode: string
+  country: string
+  phone1: string
+  phone2: string
+  gstNumber: string
+  remark1: string
+  remark2: string
+  balance: number
+  openingBalance: number
+  isActive: boolean
+  pstGstFlag: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ARTransaction {
+  id: string
+  shopId: string
+  customerId: string
+  date: string
+  description: string
+  crDr: string
+  amount: number
+  createdAt: string
+}
+
+export interface APTransaction {
+  id: string
+  shopId: string
+  supplierId: string
+  invoiceNumber: string
+  date: string
+  type: string
+  comment: string
+  crDr: string
+  amount: number
+  gstAmount: number
+  createdAt: string
+}
+
 export interface PaginationParams {
   page: number
   pageSize: number

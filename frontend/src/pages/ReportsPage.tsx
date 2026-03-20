@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Users, ClipboardList, BarChart3 } from 'lucide-react'
+import { Loader2, Users, ClipboardList, BarChart3, DollarSign } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
   getCustomerReport,
   getWorkOrderReport,
   getSummaryReport,
+  getARAgingReport,
   type CustomerReportRow,
   type WorkOrderReportRow,
   type SummaryReport,
@@ -14,6 +16,7 @@ const TABS = [
   { id: 'customers', label: 'Customer Report', icon: Users },
   { id: 'work-orders', label: 'Work Order Report', icon: ClipboardList },
   { id: 'summary', label: 'Summary Report', icon: BarChart3 },
+  { id: 'ar-aging', label: 'AR Aging', icon: DollarSign },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -306,6 +309,93 @@ function SummaryReportTab() {
   )
 }
 
+// ─── AR Aging Report ─────────────────────────────────────────
+
+function ARAgingReport() {
+  const navigate = useNavigate()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['report-ar-aging'],
+    queryFn: () => getARAgingReport(),
+  })
+
+  return (
+    <div>
+      {data && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-5">
+          {[
+            { label: 'Current', value: data.totalCurrent },
+            { label: '30 Days', value: data.total30 },
+            { label: '60 Days', value: data.total60 },
+            { label: '90+ Days', value: data.total90 },
+            { label: 'Total AR', value: data.grandTotal },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg border bg-white p-4 shadow-sm">
+              <p className="text-xs font-medium text-slate-500">{s.label}</p>
+              <p className={`mt-1 text-lg font-bold ${s.value > 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                {fmt$(s.value)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50">
+                <th className="px-4 py-3 font-medium text-slate-500">Customer</th>
+                <th className="px-4 py-3 font-medium text-slate-500">Phone</th>
+                <th className="px-4 py-3 font-medium text-slate-500">City</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">Current</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">30 Days</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">60 Days</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">90+ Days</th>
+                <th className="px-4 py-3 text-right font-medium text-slate-500">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={8} className="py-12 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-600" /></td></tr>
+              ) : !data || data.rows.length === 0 ? (
+                <tr><td colSpan={8} className="py-12 text-center text-sm text-slate-400">No outstanding AR balances</td></tr>
+              ) : (
+                <>
+                  {data.rows.map((r) => (
+                    <tr
+                      key={r.customerId}
+                      onClick={() => navigate(`/customers/${r.customerId}`)}
+                      className="cursor-pointer border-b last:border-0 hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-2.5 font-medium text-slate-900">{r.customerName}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{r.phone || '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{r.city || '—'}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-600">{fmt$(r.current)}</td>
+                      <td className={`px-4 py-2.5 text-right ${r.days30 > 0 ? 'text-amber-600' : 'text-slate-600'}`}>{fmt$(r.days30)}</td>
+                      <td className={`px-4 py-2.5 text-right ${r.days60 > 0 ? 'text-orange-600' : 'text-slate-600'}`}>{fmt$(r.days60)}</td>
+                      <td className={`px-4 py-2.5 text-right ${r.days90 > 0 ? 'font-medium text-red-600' : 'text-slate-600'}`}>{fmt$(r.days90)}</td>
+                      <td className={`px-4 py-2.5 text-right font-medium ${r.total > 0 ? 'text-red-600' : 'text-slate-900'}`}>{fmt$(r.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
+                    <td colSpan={3} className="px-4 py-2.5 text-slate-700">{data.customerCount} customer(s)</td>
+                    <td className="px-4 py-2.5 text-right text-slate-900">{fmt$(data.totalCurrent)}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-900">{fmt$(data.total30)}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-900">{fmt$(data.total60)}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-900">{fmt$(data.total90)}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-900">{fmt$(data.grandTotal)}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Reports Page ───────────────────────────────────────
 
 export default function ReportsPage() {
@@ -315,7 +405,7 @@ export default function ReportsPage() {
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-900">Reports</h1>
 
-      <div className="mb-6 flex gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
+      <div className="mb-6 flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
         {TABS.map((t) => {
           const Icon = t.icon
           return (
@@ -338,6 +428,7 @@ export default function ReportsPage() {
       {tab === 'customers' && <CustomerReport />}
       {tab === 'work-orders' && <WorkOrderReport />}
       {tab === 'summary' && <SummaryReportTab />}
+      {tab === 'ar-aging' && <ARAgingReport />}
     </div>
   )
 }

@@ -219,6 +219,29 @@ func (r *PartRepo) Update(ctx context.Context, p *models.Part) error {
 	return nil
 }
 
+func (r *PartRepo) ListBySupplier(ctx context.Context, shopID, supplierID uuid.UUID) ([]models.Part, error) {
+	query := fmt.Sprintf(
+		`SELECT %s FROM parts
+		 WHERE shop_id = $1 AND supplier_id = $2
+		 ORDER BY code ASC`, partSelectCols)
+
+	rows, err := r.pool.Query(ctx, query, shopID, supplierID)
+	if err != nil {
+		return nil, fmt.Errorf("list parts by supplier: %w", err)
+	}
+	defer rows.Close()
+
+	var parts []models.Part
+	for rows.Next() {
+		p, err := scanPart(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan part: %w", err)
+		}
+		parts = append(parts, p)
+	}
+	return parts, nil
+}
+
 func (r *PartRepo) Delete(ctx context.Context, shopID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM parts WHERE id = $1 AND shop_id = $2`, id, shopID)
 	if err != nil {
