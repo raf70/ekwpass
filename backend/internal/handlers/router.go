@@ -30,6 +30,8 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	workOrderService := services.NewWorkOrderService(workOrderRepo, customerRepo, arRepo)
 	partService := services.NewPartService(partRepo)
 	supplierService := services.NewSupplierService(supplierRepo)
+	saleRepo := repositories.NewSaleRepo(pool)
+	saleService := services.NewSaleService(saleRepo)
 
 	healthH := NewHealthHandler()
 	authH := NewAuthHandler(authService)
@@ -39,6 +41,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	woLineH := NewWorkOrderLineHandler(workOrderLineRepo)
 	partH := NewPartHandler(partService)
 	supplierH := NewSupplierHandler(supplierService, partService, apRepo)
+	saleH := NewSaleHandler(saleService)
 	shopSettingsRepo := repositories.NewShopSettingsRepo(pool)
 	reportsH := NewReportsHandler(pool, arRepo)
 	settingsH := NewSettingsHandler(shopSettingsRepo)
@@ -92,6 +95,13 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	suppliers.DELETE("/:id", supplierH.Delete)
 	suppliers.GET("/:id/parts", supplierH.ListParts)
 	suppliers.GET("/:id/ap-transactions", supplierH.ListAPTransactions)
+
+	sales := protected.Group("/sales")
+	sales.GET("", saleH.List)
+	sales.POST("", saleH.Create)
+	sales.GET("/:id", saleH.GetByID)
+	sales.PUT("/:id", saleH.Update)
+	sales.DELETE("/:id", saleH.Delete)
 
 	reports := protected.Group("/reports")
 	reports.GET("/customers", reportsH.CustomerReport)

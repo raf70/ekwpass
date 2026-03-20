@@ -14,7 +14,7 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 
 ## Modules Still on Placeholder Pages
 
-- [ ] **Sales (counter/POS)** — full CRUD, similar to how Suppliers was implemented
+- [x] **Sales (counter/POS)** — full CRUD, similar to how Suppliers was implemented
 - [x] **Settings** — shop settings management UI (tax rates, shop supplies rate, payment types, invoice numbering, etc.)
 
 ## Data Migration

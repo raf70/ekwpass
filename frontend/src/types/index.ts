@@ -209,6 +209,32 @@ export interface APTransaction {
   createdAt: string
 }
 
+export interface Sale {
+  id: string
+  shopId: string
+  saleNumber: string
+  customerId: string | null
+  status: string
+  saleType: string
+  saleInfo: string
+  date: string
+  time: string
+  qty: number
+  description: string
+  department: number
+  amount: number
+  isTaxable: boolean
+  paymentType: string
+  supplierId: string | null
+  supplierInvoice: string
+  partCode: string
+  cost: number
+  listPrice: number
+  technicianId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PaginationParams {
   page: number
   pageSize: number

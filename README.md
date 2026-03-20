@@ -57,6 +57,81 @@ npm run dev
 3. Enter your shop name, your name, email, and password
 4. Click **Create Shop** to create the first admin account
 
+## Legacy Data Import
+
+The project includes a migration tool that imports data from the original DOS (CA-Clipper/dBASE) `.DBF` files into PostgreSQL.
+
+### Prerequisites
+
+- Docker services running (`docker compose up -d`)
+- Legacy data files in a local directory (e.g. `~/Ekwpass/` or `old_version/Ekwpass/`)
+
+### Rebuild the backend image (after code changes)
+
+```bash
+docker compose build backend
+```
+
+### Run the import
+
+```bash
+docker compose run --rm \
+  -v /path/to/legacy/data:/data \
+  backend ./migrate-legacy \
+    -db 'postgres://ekwpass:ekwpass_dev@db:5432/ekwpass?sslmode=disable' \
+    -data /data
+```
+
+Replace `/path/to/legacy/data` with the absolute path to the directory containing the `.DBF` files (e.g. `CUSTOMER.DBF`, `VEHICLE.DBF`, `SALEFILE.DBF`).
+
+To import into an existing shop (instead of creating a new one), pass `-shop-id`:
+
+```bash
+docker compose run --rm \
+  -v /path/to/legacy/data:/data \
+  backend ./migrate-legacy \
+    -db 'postgres://ekwpass:ekwpass_dev@db:5432/ekwpass?sslmode=disable' \
+    -data /data \
+    -shop-id <your-shop-uuid>
+```
+
+### Re-importing (fresh start)
+
+To wipe the database and re-import from scratch:
+
+```bash
+# Stop services and destroy the database volume
+docker compose down -v
+
+# Start fresh — migrations run automatically on backend start
+docker compose up -d
+
+# Run the import again
+docker compose run --rm \
+  -v /path/to/legacy/data:/data \
+  backend ./migrate-legacy \
+    -db 'postgres://ekwpass:ekwpass_dev@db:5432/ekwpass?sslmode=disable' \
+    -data /data
+```
+
+> **Note:** `docker compose down -v` deletes the PostgreSQL data volume. You will need to re-run the setup wizard (create shop + admin account) before importing.
+
+### What gets imported
+
+| Legacy DBF file   | Target table        |
+|--------------------|---------------------|
+| CUSTOMER.DBF       | customers           |
+| VEHICLE.DBF        | vehicles            |
+| PARTS.DBF          | parts               |
+| SUPPLIER.DBF       | suppliers           |
+| WIPFILE.DBF        | work_orders (open)  |
+| HISFILE.DBF        | work_orders (closed)|
+| WIPDTL.DBF         | work_order_lines    |
+| HISDTL.DBF         | work_order_lines    |
+| SALEFILE.DBF        | sales               |
+| CAR20.DBF          | ar_transactions     |
+| SAP.DBF            | ap_transactions     |
+
 ## Features
 
 - Multi-shop / multi-tenant support

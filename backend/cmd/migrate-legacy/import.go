@@ -466,8 +466,9 @@ func importSales(ctx context.Context, pool *pgxpool.Pool, lu *Lookups, path stri
 			INSERT INTO sales (
 				id, shop_id, sale_number, customer_id, status,
 				sale_type, sale_info, date, qty, description,
-				department, amount, is_taxable, payment_type, supplier_id
-			) VALUES ($1,$2,$3,$4,'closed',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+				department, amount, is_taxable, payment_type, supplier_id,
+				supplier_invoice, part_code, cost, list_price
+			) VALUES ($1,$2,$3,$4,'closed',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
 			ON CONFLICT (shop_id, sale_number) DO NOTHING`,
 			id, lu.ShopID, saleNo, customerID,
 			getString(r, "SALETYPE"), getString(r, "SALEINFO"),
@@ -475,6 +476,8 @@ func importSales(ctx context.Context, pool *pgxpool.Pool, lu *Lookups, path stri
 			getFloat(r, "SALEQTY"), getString(r, "SALEDESC"),
 			getInt(r, "SALEDEPT"), getFloat(r, "SALEAMT"),
 			getBool(r, "SALETAX"), getString(r, "SALEPTYPE"), supplierID,
+			getString(r, "SALESUPLIV"), getString(r, "SALEPCODE"),
+			getFloat(r, "SALECOST"), getFloat(r, "SALELIST"),
 		)
 		if err != nil {
 			log.Printf("    sale %s: %v", saleNo, err)

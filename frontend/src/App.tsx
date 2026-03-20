@@ -17,11 +17,13 @@ import PartFormPage from './pages/PartFormPage'
 import SuppliersPage from './pages/SuppliersPage'
 import SupplierDetailPage from './pages/SupplierDetailPage'
 import SupplierFormPage from './pages/SupplierFormPage'
+import SalesPage from './pages/SalesPage'
+import SaleDetailPage from './pages/SaleDetailPage'
+import SaleFormPage from './pages/SaleFormPage'
 import InvoicePage from './pages/InvoicePage'
 import ReportsPage from './pages/ReportsPage'
 import StatementPage from './pages/StatementPage'
 import SettingsPage from './pages/SettingsPage'
-import PlaceholderPage from './pages/PlaceholderPage'
 
 function ProtectedRoute() {
   const { user, isLoading } = useAuth()
@@ -67,7 +69,10 @@ export default function App() {
         <Route path="work-orders/:id" element={<WorkOrderDetailPage />} />
         <Route path="work-orders/:id/edit" element={<WorkOrderFormPage />} />
         <Route path="work-orders/:id/invoice" element={<InvoicePage />} />
-        <Route path="sales" element={<PlaceholderPage title="Sales" />} />
+        <Route path="sales" element={<SalesPage />} />
+        <Route path="sales/new" element={<SaleFormPage />} />
+        <Route path="sales/:id" element={<SaleDetailPage />} />
+        <Route path="sales/:id/edit" element={<SaleFormPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
