@@ -1,0 +1,64 @@
+---
+description: EKW-PASS project context - auto shop ERP rebuild from legacy DOS Clipper/dBASE to Go + React + PostgreSQL
+alwaysApply: true
+---
+
+# EKW-PASS Project Context
+
+Rebuilt from a legacy DOS (CA-Clipper/dBASE) automotive repair shop ERP called E.K.W.-PASS.
+
+## Architecture
+
+- **Backend**: Go 1.25, Gin framework, pgx v5 driver, JWT auth (golang-jwt/v5)
+- **Frontend**: React 18, TypeScript, Vite 5, Tailwind CSS 3, React Router v6, TanStack Query v5, Axios
+- **Database**: PostgreSQL 16 with UUID primary keys, multi-tenant via `shop_id` on every table
+- **Deployment**: Docker Compose (db, backend, frontend via nginx)
+
+## Project Layout
+
+```
+backend/
+  cmd/server/main.go              # Entry point
+  internal/config/                # Env-based config (DatabaseURL, JWTSecret, Port)
+  internal/database/              # pgxpool connection + golang-migrate migrations
+  internal/middleware/            # JWT auth, CORS, tenant scoping
+  internal/models/                # One file per entity, json:"camelCase" tags
+  internal/repositories/          # pgx parameterized queries, context-first, shop_id scoped
+  internal/services/              # Business logic layer
+  internal/handlers/              # Gin HTTP handlers + router.go wiring
+  migrations/                     # SQL migration files (000001_initial_schema)
+frontend/
+  src/api/                        # Axios client + per-entity API modules
+  src/hooks/useAuth.tsx           # AuthContext with JWT in localStorage
+  src/components/layout/          # AppLayout (sidebar + header + Outlet), Sidebar
+  src/pages/                      # Route-level page components
+  src/types/index.ts              # TypeScript interfaces matching Go models
+```
+
+## Key Design Decisions
+
+- **Multi-tenant**: Every table has `shop_id` FK; all queries filter by it
+- **Auth flow**: GET /api/auth/status checks initialization; POST /api/auth/setup creates first shop+admin; POST /api/auth/login returns JWT (24h expiry)
+- **Roles**: admin, technician, front_desk
+- **IDs**: UUID v4 generated before INSERT (uuid.New())
+- **Dates**: *time.Time for nullable dates, time.Time for required timestamps
+- **Money**: float64 in Go / number in TypeScript (NUMERIC in PostgreSQL)
+- **Errors**: c.JSON(status, gin.H{"error": "message"})
+
+## Database Schema (16 tables)
+
+shops, users, customers, vehicles, suppliers, parts, work_orders, work_order_technicians, work_order_lines, sales, ar_transactions, ap_transactions, recalls, lookup_codes, audit_logs, shop_settings
+
+## Legacy Source (read-only reference)
+
+`old_version/Ekwpass/` contains the original DBF data files and structure definitions (e.g., CUSTOMER.151, VEHICLE.166). No source code (.PRG) exists -- schema was reverse-engineered from DBF field descriptors and error logs.
+
+## Canadian Tax System
+
+GST (federal) + PST (provincial) or HST (combined). Per-customer tax exemptions. Rates stored in shop_settings. Tax calculation happens during work order finalization.
+
+## Implementation Status
+
+Implemented: Auth, Customers CRUD, Vehicles CRUD, Dashboard, Login/Setup UI
+Placeholder pages: Parts, Suppliers, Work Orders, Sales, Reports, Settings
+Future: Data migration from DBF files
