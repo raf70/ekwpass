@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,33 +103,102 @@ func (r *WorkOrderLineRepo) Delete(ctx context.Context, lineID uuid.UUID) (uuid.
 	return woID, nil
 }
 
-// RecalcTotals recomputes parts/jobs counts and amounts on the parent work order.
+func cents(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
+// RecalcTotals recomputes parts/jobs counts, shop supplies, discounts, and
+// taxes on the parent work order using current shop_settings rates.
 func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE work_orders SET
-			parts_count  = COALESCE((SELECT COUNT(*)::int FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'part'), 0),
-			parts_taxable = COALESCE((SELECT SUM(qty * price) FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'part' AND is_taxable = true), 0),
-			parts_nontaxable = COALESCE((SELECT SUM(qty * price) FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'part' AND is_taxable = false), 0),
-			jobs_count   = COALESCE((SELECT COUNT(*)::int FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'job'), 0),
-			jobs_taxable = COALESCE((SELECT SUM(qty * price) FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'job' AND is_taxable = true), 0),
-			jobs_nontaxable = COALESCE((SELECT SUM(qty * price) FROM work_order_lines WHERE work_order_id = $1 AND line_type = 'job' AND is_taxable = false), 0),
-			pst_amount = 0,
-			gst_amount = COALESCE((
-				SELECT SUM(wol.qty * wol.price) * 0.13
-				FROM work_order_lines wol
-				WHERE wol.work_order_id = $1 AND wol.is_taxable = true
-			), 0) * CASE WHEN (SELECT gst_exempt FROM work_orders WHERE id = $1) THEN 0 ELSE 1 END,
-			total_tax = COALESCE((
-				SELECT SUM(wol.qty * wol.price) * 0.13
-				FROM work_order_lines wol
-				WHERE wol.work_order_id = $1 AND wol.is_taxable = true
-			), 0) * CASE WHEN (SELECT gst_exempt FROM work_orders WHERE id = $1) THEN 0 ELSE 1 END,
+	var partsCount, jobsCount int
+	var partsTaxable, partsNontaxable, jobsTaxable, jobsNontaxable float64
+	err := r.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE line_type = 'part'),
+			COALESCE(SUM(qty * price) FILTER (WHERE line_type = 'part' AND is_taxable), 0),
+			COALESCE(SUM(qty * price) FILTER (WHERE line_type = 'part' AND NOT is_taxable), 0),
+			COUNT(*) FILTER (WHERE line_type = 'job'),
+			COALESCE(SUM(qty * price) FILTER (WHERE line_type = 'job' AND is_taxable), 0),
+			COALESCE(SUM(qty * price) FILTER (WHERE line_type = 'job' AND NOT is_taxable), 0)
+		FROM work_order_lines WHERE work_order_id = $1`,
+		workOrderID,
+	).Scan(&partsCount, &partsTaxable, &partsNontaxable, &jobsCount, &jobsTaxable, &jobsNontaxable)
+	if err != nil {
+		return fmt.Errorf("aggregate wo lines: %w", err)
+	}
+
+	var ssRate float64
+	var ssTaxable, useHST bool
+	var docRate, fedRate, provRate float64
+	err = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(shop_supplies_rate, 0), COALESCE(shop_supplies_taxable, false),
+		       COALESCE(doc_rate, 0),
+		       COALESCE(federal_tax_rate, 0), COALESCE(provincial_tax_rate, 0),
+		       COALESCE(use_hst, false)
+		FROM shop_settings WHERE shop_id = $1`, shopID,
+	).Scan(&ssRate, &ssTaxable, &docRate, &fedRate, &provRate, &useHST)
+	if err != nil {
+		return fmt.Errorf("read shop settings for recalc: %w", err)
+	}
+
+	var jobsDiscPct, partsDiscPct float64
+	var pstExempt, gstExempt bool
+	err = r.pool.QueryRow(ctx, `
+		SELECT COALESCE(jobs_discount_pct, 0), COALESCE(parts_discount_pct, 0),
+		       COALESCE(pst_exempt, false), COALESCE(gst_exempt, false)
+		FROM work_orders WHERE id = $1`, workOrderID,
+	).Scan(&jobsDiscPct, &partsDiscPct, &pstExempt, &gstExempt)
+	if err != nil {
+		return fmt.Errorf("read wo for recalc: %w", err)
+	}
+
+	jobsDiscAmt := cents((jobsTaxable + jobsNontaxable) * jobsDiscPct / 100)
+	partsDiscAmt := cents((partsTaxable + partsNontaxable) * partsDiscPct / 100)
+
+	totalParts := partsTaxable + partsNontaxable
+	shopSuppliesAmt := cents(totalParts * ssRate / 100)
+
+	// Taxable base after proportional discounts
+	taxBase := jobsTaxable*(1-jobsDiscPct/100) + partsTaxable*(1-partsDiscPct/100)
+	if ssTaxable {
+		taxBase += shopSuppliesAmt
+	}
+
+	var gstAmt, pstAmt float64
+	if useHST {
+		if !gstExempt {
+			gstAmt = cents(taxBase * fedRate / 100)
+		}
+	} else {
+		if !gstExempt {
+			gstAmt = cents(taxBase * fedRate / 100)
+		}
+		if !pstExempt {
+			pstAmt = cents(taxBase * provRate / 100)
+		}
+	}
+	totalTax := cents(gstAmt + pstAmt)
+
+	_, err = r.pool.Exec(ctx, `
+		UPDATE work_orders SET
+			parts_count = $3, parts_taxable = $4, parts_nontaxable = $5,
+			parts_discount_amt = $6,
+			jobs_count = $7, jobs_taxable = $8, jobs_nontaxable = $9,
+			jobs_discount_amt = $10,
+			shop_supplies_rate = $11, shop_supplies_taxable = $12, shop_supplies_amt = $13,
+			doc_rate = $14,
+			gst_amount = $15, pst_amount = $16, total_tax = $17,
 			updated_at = NOW()
 		WHERE id = $1 AND shop_id = $2`,
 		workOrderID, shopID,
+		partsCount, partsTaxable, partsNontaxable, partsDiscAmt,
+		jobsCount, jobsTaxable, jobsNontaxable, jobsDiscAmt,
+		ssRate, ssTaxable, shopSuppliesAmt,
+		docRate,
+		gstAmt, pstAmt, totalTax,
 	)
 	if err != nil {
-		return fmt.Errorf("recalc wo totals: %w", err)
+		return fmt.Errorf("update wo totals: %w", err)
 	}
 	return nil
 }

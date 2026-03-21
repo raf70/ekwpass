@@ -12,6 +12,7 @@ import {
   type WorkOrderLine,
 } from '@/api/workOrderLines'
 import { searchParts } from '@/api/parts'
+import { getSettings } from '@/api/settings'
 import type { Part } from '@/types'
 
 function fmt$(amount: number) {
@@ -46,6 +47,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 const EMPTY_LINE = { partCode: '', description: '', qty: '1', price: '', isTaxable: true }
+const EMPTY_JOB = { description: '', qty: '1', price: '0', isTaxable: true }
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -54,6 +56,10 @@ export default function WorkOrderDetailPage() {
   const [showAddPart, setShowAddPart] = useState(false)
   const [newLine, setNewLine] = useState(EMPTY_LINE)
   const [lineError, setLineError] = useState('')
+
+  const [showAddJob, setShowAddJob] = useState(false)
+  const [newJob, setNewJob] = useState(EMPTY_JOB)
+  const [jobError, setJobError] = useState('')
 
   const [codeSearch, setCodeSearch] = useState('')
   const [codeDebounced, setCodeDebounced] = useState('')
@@ -110,6 +116,11 @@ export default function WorkOrderDetailPage() {
     setShowDescDropdown(false)
   }
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: getSettings,
+  })
+
   const { data: wo, isLoading } = useQuery({
     queryKey: ['work-order', id],
     queryFn: () => getWorkOrder(id!),
@@ -140,6 +151,25 @@ export default function WorkOrderDetailPage() {
       setLineError('')
     },
     onError: () => setLineError('Failed to add part.'),
+  })
+
+  const addJobMutation = useMutation({
+    mutationFn: () =>
+      createWorkOrderLine(id!, {
+        lineType: 'job',
+        description: newJob.description,
+        qty: parseFloat(newJob.qty) || 1,
+        price: parseFloat(newJob.price) || 0,
+        isTaxable: newJob.isTaxable,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-order-lines', id] })
+      queryClient.invalidateQueries({ queryKey: ['work-order', id] })
+      setNewJob(EMPTY_JOB)
+      setShowAddJob(false)
+      setJobError('')
+    },
+    onError: () => setJobError('Failed to add labour item.'),
   })
 
   const deleteLineMutation = useMutation({
@@ -347,7 +377,7 @@ export default function WorkOrderDetailPage() {
             Parts
             <span className="ml-1 text-sm font-normal text-slate-400">({partLines.length})</span>
           </h2>
-          {!showAddPart && (
+          {!showAddPart && wo.status === 'open' && (
             <button
               onClick={() => setShowAddPart(true)}
               className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -359,7 +389,7 @@ export default function WorkOrderDetailPage() {
         </div>
 
         {/* Add Part Form */}
-        {showAddPart && (
+        {showAddPart && wo.status === 'open' && (
           <div className="border-b px-6 py-4">
             {lineError && (
               <p className="mb-2 text-sm text-red-600">{lineError}</p>
@@ -499,7 +529,7 @@ export default function WorkOrderDetailPage() {
                   <th className="px-6 py-3 text-right font-medium text-slate-500">Price</th>
                   <th className="px-6 py-3 text-right font-medium text-slate-500">Total</th>
                   <th className="px-6 py-3 font-medium text-slate-500">Tax</th>
-                  <th className="w-12 px-3 py-3"></th>
+                  {wo.status === 'open' && <th className="w-12 px-3 py-3"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -517,6 +547,7 @@ export default function WorkOrderDetailPage() {
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">No</span>
                       )}
                     </td>
+                    {wo.status === 'open' && (
                     <td className="px-3 py-3">
                       <button
                         onClick={() => handleDeleteLine(l)}
@@ -526,13 +557,13 @@ export default function WorkOrderDetailPage() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    </td>
+                    </td>)}
                   </tr>
                 ))}
                 <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
                   <td colSpan={4} className="px-6 py-3 text-slate-700">Parts Total</td>
                   <td className="px-6 py-3 text-right text-slate-900">{fmt$(partsTotal)}</td>
-                  <td colSpan={2}></td>
+                  <td colSpan={wo.status === 'open' ? 2 : 1}></td>
                 </tr>
               </tbody>
             </table>
@@ -541,6 +572,150 @@ export default function WorkOrderDetailPage() {
           <div className="py-10 text-center text-sm text-slate-400">
             <Wrench className="mx-auto mb-2 h-8 w-8" />
             No parts added yet
+          </div>
+        )}
+      </section>
+
+      {/* Labour Table */}
+      <section className="mt-6 rounded-xl border bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <Wrench className="h-4 w-4 text-slate-400" />
+            Labour
+            <span className="ml-1 text-sm font-normal text-slate-400">({jobLines.length})</span>
+          </h2>
+          {!showAddJob && wo.status === 'open' && (
+            <button
+              onClick={() => {
+                setNewJob({ ...EMPTY_JOB, price: settings?.shopRate ? String(settings.shopRate) : '' })
+                setShowAddJob(true)
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <Plus className="h-4 w-4" />
+              Add Labour
+            </button>
+          )}
+        </div>
+
+        {showAddJob && wo.status === 'open' && (
+          <div className="border-b px-6 py-4">
+            {jobError && <p className="mb-2 text-sm text-red-600">{jobError}</p>}
+            <div className="grid gap-3 sm:grid-cols-5">
+              <div className="sm:col-span-2">
+                <input
+                  type="text"
+                  placeholder="Description *"
+                  value={newJob.description}
+                  onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <input
+                type="number"
+                placeholder="Hours"
+                min="0"
+                step="0.25"
+                value={newJob.qty}
+                onChange={(e) => setNewJob({ ...newJob, qty: e.target.value })}
+                className={inputClass}
+              />
+              <input
+                type="number"
+                placeholder="Rate"
+                min="0"
+                step="0.01"
+                value={newJob.price}
+                onChange={(e) => setNewJob({ ...newJob, price: e.target.value })}
+                className={inputClass}
+              />
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={newJob.isTaxable}
+                    onChange={(e) => setNewJob({ ...newJob, isTaxable: e.target.checked })}
+                    className="rounded border-slate-300"
+                  />
+                  Taxable
+                </label>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-2">
+              <button
+                onClick={() => { setShowAddJob(false); setNewJob(EMPTY_JOB); setJobError('') }}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => addJobMutation.mutate()}
+                disabled={!newJob.description || !newJob.price || addJobMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                {addJobMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+
+        {jobLines.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50">
+                  <th className="px-6 py-3 font-medium text-slate-500">Description</th>
+                  <th className="px-6 py-3 text-right font-medium text-slate-500">Hours</th>
+                  <th className="px-6 py-3 text-right font-medium text-slate-500">Rate</th>
+                  <th className="px-6 py-3 text-right font-medium text-slate-500">Total</th>
+                  <th className="px-6 py-3 font-medium text-slate-500">Tax</th>
+                  {wo.status === 'open' && <th className="w-12 px-3 py-3"></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {jobLines.map((l) => (
+                  <tr key={l.id} className="group border-b last:border-0 hover:bg-slate-50">
+                    <td className="px-6 py-3 text-slate-900">{l.description}</td>
+                    <td className="px-6 py-3 text-right text-slate-600">{l.qty}</td>
+                    <td className="px-6 py-3 text-right text-slate-600">{fmt$(l.price)}</td>
+                    <td className="px-6 py-3 text-right font-medium text-slate-900">{fmt$(l.qty * l.price)}</td>
+                    <td className="px-6 py-3">
+                      {l.isTaxable ? (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Yes</span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">No</span>
+                      )}
+                    </td>
+                    {wo.status === 'open' && (
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={() => handleDeleteLine(l)}
+                        disabled={deleteLineMutation.isPending}
+                        className="rounded p-1 text-slate-400 opacity-0 transition-all hover:bg-red-100 hover:text-red-600 group-hover:opacity-100 disabled:opacity-50"
+                        title="Remove labour item"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>)}
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
+                  <td colSpan={3} className="px-6 py-3 text-slate-700">Labour Total</td>
+                  <td className="px-6 py-3 text-right text-slate-900">{fmt$(jobsTotal)}</td>
+                  <td colSpan={wo.status === 'open' ? 2 : 1}></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-10 text-center text-sm text-slate-400">
+            <Wrench className="mx-auto mb-2 h-8 w-8" />
+            No labour items added yet
           </div>
         )}
       </section>
@@ -560,62 +735,24 @@ export default function WorkOrderDetailPage() {
         {wo.shopSuppliesAmt > 0 && <InfoRow label="Shop Supplies" value={fmt$(wo.shopSuppliesAmt)} />}
         <div className="my-2 border-t border-slate-200" />
         <InfoRow label="Subtotal" value={fmt$(subtotal)} />
-        <InfoRow label="HST (13%)" value={fmt$(wo.gstAmount)} />
+        {wo.gstAmount > 0 && (
+          <InfoRow
+            label={wo.pstAmount > 0 ? 'GST' : 'HST'}
+            value={fmt$(wo.gstAmount)}
+          />
+        )}
+        {wo.pstAmount > 0 && (
+          <InfoRow label="PST" value={fmt$(wo.pstAmount)} />
+        )}
+        {wo.gstExempt && <InfoRow label="GST/HST" value="Exempt" />}
+        {wo.pstExempt && !wo.gstExempt && wo.pstAmount === 0 && (
+          <InfoRow label="PST" value="Exempt" />
+        )}
         <div className="flex justify-between py-2">
           <span className="text-sm font-semibold text-slate-700">Total</span>
           <span className="text-sm font-bold text-slate-900">{fmt$(grandTotal)}</span>
         </div>
       </section>
-
-      {/* Jobs Table (if any exist from legacy data) */}
-      {jobLines.length > 0 && (
-        <section className="mt-6 rounded-xl border bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b px-6 py-4">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <Wrench className="h-4 w-4 text-slate-400" />
-              Labour
-              <span className="ml-1 text-sm font-normal text-slate-400">({jobLines.length})</span>
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b bg-slate-50">
-                  <th className="px-6 py-3 font-medium text-slate-500">Code</th>
-                  <th className="px-6 py-3 font-medium text-slate-500">Description</th>
-                  <th className="px-6 py-3 text-right font-medium text-slate-500">Qty</th>
-                  <th className="px-6 py-3 text-right font-medium text-slate-500">Price</th>
-                  <th className="px-6 py-3 text-right font-medium text-slate-500">Total</th>
-                  <th className="px-6 py-3 font-medium text-slate-500">Tax</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jobLines.map((l) => (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="px-6 py-3 font-mono text-xs text-slate-600">{l.partCode || '—'}</td>
-                    <td className="px-6 py-3 text-slate-900">{l.description}</td>
-                    <td className="px-6 py-3 text-right text-slate-600">{l.qty}</td>
-                    <td className="px-6 py-3 text-right text-slate-600">{fmt$(l.price)}</td>
-                    <td className="px-6 py-3 text-right font-medium text-slate-900">{fmt$(l.qty * l.price)}</td>
-                    <td className="px-6 py-3">
-                      {l.isTaxable ? (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Yes</span>
-                      ) : (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">No</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
-                  <td colSpan={4} className="px-6 py-3 text-slate-700">Labour Total</td>
-                  <td className="px-6 py-3 text-right text-slate-900">{fmt$(jobsTotal)}</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
 
       {/* Remarks */}
       {(wo.remark1 || wo.remark2 || wo.remark3) && (

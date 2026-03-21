@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { getSale, createSale, updateSale } from '@/api/sales'
+import { getLookupCodes } from '@/api/lookupCodes'
 
 interface FormData {
   customerId: string
@@ -53,6 +54,11 @@ export default function SaleFormPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [error, setError] = useState('')
 
+  const { data: paymentTypes } = useQuery({
+    queryKey: ['lookup-codes', 'M'],
+    queryFn: () => getLookupCodes('M'),
+  })
+
   const { data: sale, isLoading: loadingSale } = useQuery({
     queryKey: ['sale', id],
     queryFn: () => getSale(id!),
@@ -87,6 +93,7 @@ export default function SaleFormPage() {
     mutationFn: (data: FormData) => {
       const payload = {
         ...data,
+        date: data.date ? `${data.date}T00:00:00Z` : undefined,
         customerId: data.customerId || null,
         supplierId: data.supplierId || null,
         technicianId: data.technicianId || null,
@@ -217,13 +224,18 @@ export default function SaleFormPage() {
             </div>
             <div>
               <label className={labelCls}>Payment Type</label>
-              <input
-                type="text"
+              <select
                 value={form.paymentType}
                 onChange={(e) => set('paymentType', e.target.value)}
                 className={inputCls}
-                maxLength={5}
-              />
+              >
+                <option value="">— Select —</option>
+                {(paymentTypes ?? []).filter(p => p.description.trim()).map((p) => (
+                  <option key={p.keyValue} value={p.description.replace(/^\*+\s*|\s*\*+$/g, '').trim()}>
+                    {p.description.replace(/^\*+\s*|\s*\*+$/g, '').trim()}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </section>

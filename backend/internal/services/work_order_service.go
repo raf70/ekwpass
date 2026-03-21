@@ -16,10 +16,11 @@ type WorkOrderService struct {
 	repo         *repositories.WorkOrderRepo
 	customerRepo *repositories.CustomerRepo
 	arRepo       *repositories.ARTransactionRepo
+	lineRepo     *repositories.WorkOrderLineRepo
 }
 
-func NewWorkOrderService(repo *repositories.WorkOrderRepo, customerRepo *repositories.CustomerRepo, arRepo *repositories.ARTransactionRepo) *WorkOrderService {
-	return &WorkOrderService{repo: repo, customerRepo: customerRepo, arRepo: arRepo}
+func NewWorkOrderService(repo *repositories.WorkOrderRepo, customerRepo *repositories.CustomerRepo, arRepo *repositories.ARTransactionRepo, lineRepo *repositories.WorkOrderLineRepo) *WorkOrderService {
+	return &WorkOrderService{repo: repo, customerRepo: customerRepo, arRepo: arRepo, lineRepo: lineRepo}
 }
 
 func (s *WorkOrderService) List(ctx context.Context, shopID uuid.UUID, params models.PaginationParams, status string) ([]models.WorkOrder, int64, error) {
@@ -44,7 +45,15 @@ func (s *WorkOrderService) Update(ctx context.Context, wo *models.WorkOrder) err
 	}
 
 	if old.Status != "closed" && wo.Status == "closed" {
-		s.postARCharge(ctx, wo)
+		// Recalc with latest shop_settings rates before finalizing
+		if err := s.lineRepo.RecalcTotals(ctx, wo.ShopID, wo.ID); err != nil {
+			log.Printf("recalc totals on close WO %s: %v", wo.InvoiceNumber, err)
+		}
+		// Re-read updated totals for AR posting
+		updated, err := s.repo.FindByID(ctx, wo.ShopID, wo.ID)
+		if err == nil && updated != nil {
+			s.postARCharge(ctx, updated)
+		}
 	} else if old.Status == "closed" && wo.Status != "closed" {
 		s.reverseARCharge(ctx, wo.ShopID, wo.ID)
 	}

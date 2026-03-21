@@ -27,7 +27,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	authService := services.NewAuthService(userRepo, shopRepo, cfg.JWTSecret)
 	customerService := services.NewCustomerService(customerRepo)
 	vehicleService := services.NewVehicleService(vehicleRepo)
-	workOrderService := services.NewWorkOrderService(workOrderRepo, customerRepo, arRepo)
+	workOrderService := services.NewWorkOrderService(workOrderRepo, customerRepo, arRepo, workOrderLineRepo)
 	partService := services.NewPartService(partRepo)
 	supplierService := services.NewSupplierService(supplierRepo)
 	saleRepo := repositories.NewSaleRepo(pool)
@@ -43,8 +43,10 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	supplierH := NewSupplierHandler(supplierService, partService, apRepo)
 	saleH := NewSaleHandler(saleService)
 	shopSettingsRepo := repositories.NewShopSettingsRepo(pool)
+	lookupCodeRepo := repositories.NewLookupCodeRepo(pool)
 	reportsH := NewReportsHandler(pool, arRepo)
 	settingsH := NewSettingsHandler(shopSettingsRepo)
+	lookupCodeH := NewLookupCodeHandler(lookupCodeRepo)
 
 	api := r.Group("/api")
 	api.GET("/health", healthH.Health)
@@ -123,6 +125,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	})
 	protected.GET("/settings", settingsH.Get)
 	protected.PUT("/settings", settingsH.Update)
+	protected.GET("/lookup-codes", lookupCodeH.List)
 
 	vehicles := protected.Group("/vehicles")
 	vehicles.POST("", vehicleH.Create)
