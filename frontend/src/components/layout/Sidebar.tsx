@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   FileText,
   CalendarCheck,
+  List,
   Settings,
   X,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ const navItems = [
   { to: '/sales', label: 'Sales', icon: ShoppingCart },
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/month-end', label: 'Month-End', icon: CalendarCheck },
+  { to: '/lookup-codes', label: 'Lookup Codes', icon: List },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

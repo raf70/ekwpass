@@ -4,11 +4,14 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 
 ## Work Orders
 
-- [x] **CRUD + lines** — create, edit, detail, close/reopen/void, add/remove lines
+- [x] **CRUD + lines** — create, edit, detail, close/reopen/void, add/remove parts and labour lines
+- [x] **Add labour UI** — inline form on WO detail page with default hourly rate from `shop_settings.shop_rate`
+- [x] **Editing locked on closed/voided orders** — add/delete buttons hidden when WO is not open
 - [x] **Invoice printing** — printable invoice from work order detail page with parts, labour, and tax breakdown
 - [x] **Tax finalization on close** — reads `shop_settings` rates (GST/PST/HST, `use_hst` flag), respects per-customer `pst_exempt`/`gst_exempt`; recalcs totals on close before AR posting
 - [x] **Totals recalculation** — shop supplies amount, discount amounts, doc rate, and taxes computed from `shop_settings` whenever lines change
 - [ ] **Technician assignment** — `work_order_technicians` table exists in schema but has no repo, handler, or UI; legacy tracked technician per line (`IDTECH`)
+- [ ] **Invoice print options** — `printTechDetail`, `printInvoiceHours`, `printInvoiceSupplier` settings exist but invoice page doesn't use them yet
 
 ## Accounts Receivable (AR)
 
@@ -18,14 +21,23 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [x] **Aging bucket processing (month-end)** — roll balances: current → 30 → 60 → 90 days overdue
 - [x] **Interest charges** — apply `shop_settings.ar_interest_rate` to overdue balances (30+ days)
 - [x] **Statement generation** — generate/print customer AR statements
-- [ ] **AR delay processing** — wire `shop_settings.ar_delay_processing` flag to control whether aging runs immediately or is deferred
+- [ ] **AR delay processing** — wire `shop_settings.ar_delay_processing` flag to guard individual aging/interest/statement buttons when enabled (month-end handles it all)
 - [ ] **CAR10–CAR22 investigation** — legacy has ~12 additional AR tables (likely period summaries); determine if they contain data worth importing
+
+## Month-End Processing
+
+- [x] **Month-end workflow** — unified page that runs AR aging, interest charges, statement generation, and advances `system_month` in one operation
+- [x] **Preview** — shows current period, customer counts, overdue counts, and interest rate before processing
+- [x] **System month in settings** — editable dropdown on Settings page to view/set the current accounting period
+- [ ] **Year-end processing** — YEDCUSVH.DBF, YREND module; year-end rollover of `ytd_sales`/`ytd_gst` fields on customers, archiving
 
 ## Lookup Codes
 
 - [x] **Data migration** — TBLFILE.DBF imported into `lookup_codes` table
-- [ ] **API + UI** — no handler or frontend for viewing/editing lookup codes
-- [ ] **Use in forms** — lookup codes should populate dropdowns (payment types, departments, sale types, etc.) in work order, sale, and part forms
+- [x] **API** — `GET /api/lookup-codes?tableId=` endpoint to query by category
+- [x] **Payment type dropdown** — Sale form uses lookup codes (table `M`) for payment type selection
+- [x] **CRUD UI** — Lookup Codes page with category tabs, inline editing, add/delete; sidebar link
+- [x] **Use in more forms** — department dropdown (table D) on sale and part forms; sale type dropdown (table S) on sale form
 
 ## Service Recalls / Reminders
 
@@ -72,7 +84,6 @@ These existed in the legacy system but may not be needed in the new one:
 - [ ] **Messages** — MESSAGES.DBF (67 KB); internal messaging or notes system
 - [ ] **Parts catalog** — CATALOG.DBF; separate from parts inventory, possibly a reference catalog
 - [ ] **Print definitions** — PRTDEF.DBF; printer configuration (may not apply to web)
-- [ ] **Year-end processing** — YEDCUSVH.DBF, YREND module; year-end rollover of YTD fields, archiving
 - [ ] **Customer report template** — CUSTREP.DBF; legacy report layout definition
 - [ ] **Invoice department/text** — INVDEPT.DBF, INVTEXT.DBF; per-department invoice customization
 
@@ -92,7 +103,9 @@ These existed in the legacy system but may not be needed in the new one:
 - [x] Sales (counter/POS) CRUD
 - [x] AR transactions + aging + interest + statements
 - [x] AP transactions (per supplier)
-- [x] Shop settings management UI
+- [x] Shop settings management UI (including system month)
 - [x] Invoice printing
 - [x] Dashboard with live metrics
 - [x] Legacy data migration (15 import steps)
+- [x] Month-end processing (AR aging + interest + statements + advance period)
+- [x] Lookup codes CRUD UI + dropdowns in sale/part forms

@@ -15,9 +15,33 @@ export interface LookupCode {
   flag: string
 }
 
+export interface LookupCategory {
+  tableId: string
+  count: number
+}
+
+export async function getLookupCategories(): Promise<LookupCategory[]> {
+  const { data } = await client.get<LookupCategory[]>('/api/lookup-codes/categories')
+  return data
+}
+
 export async function getLookupCodes(tableId: string): Promise<LookupCode[]> {
   const { data } = await client.get<LookupCode[]>('/api/lookup-codes', {
     params: { tableId },
   })
   return data
+}
+
+export async function createLookupCode(code: Partial<LookupCode>): Promise<LookupCode> {
+  const { data } = await client.post<LookupCode>('/api/lookup-codes', code)
+  return data
+}
+
+export async function updateLookupCode(id: string, code: Partial<LookupCode>): Promise<LookupCode> {
+  const { data } = await client.put<LookupCode>(`/api/lookup-codes/${id}`, code)
+  return data
+}
+
+export async function deleteLookupCode(id: string): Promise<void> {
+  await client.delete(`/api/lookup-codes/${id}`)
 }

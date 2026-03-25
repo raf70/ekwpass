@@ -126,7 +126,12 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	})
 	protected.GET("/settings", settingsH.Get)
 	protected.PUT("/settings", settingsH.Update)
-	protected.GET("/lookup-codes", lookupCodeH.List)
+	lookupCodes := protected.Group("/lookup-codes")
+	lookupCodes.GET("", lookupCodeH.List)
+	lookupCodes.GET("/categories", lookupCodeH.Categories)
+	lookupCodes.POST("", lookupCodeH.Create)
+	lookupCodes.PUT("/:id", lookupCodeH.Update)
+	lookupCodes.DELETE("/:id", lookupCodeH.Delete)
 
 	monthEnd := protected.Group("/month-end")
 	monthEnd.GET("/preview", monthEndH.Preview)

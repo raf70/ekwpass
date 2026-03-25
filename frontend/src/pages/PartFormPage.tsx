@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { getPart, createPart, updatePart } from '@/api/parts'
+import { getLookupCodes } from '@/api/lookupCodes'
 
 interface FormData {
   code: string
@@ -60,6 +61,11 @@ export default function PartFormPage() {
 
   const [form, setForm] = useState<FormData>(emptyForm)
   const [error, setError] = useState('')
+
+  const { data: departments } = useQuery({
+    queryKey: ['lookup-codes', 'D'],
+    queryFn: () => getLookupCodes('D'),
+  })
 
   const { data: part, isLoading: loadingPart } = useQuery({
     queryKey: ['part', id],
@@ -193,13 +199,18 @@ export default function PartFormPage() {
             </div>
             <div>
               <label className={labelCls}>Department</label>
-              <input
-                type="number"
-                min="0"
+              <select
                 value={form.department}
                 onChange={(e) => set('department', parseInt(e.target.value) || 0)}
                 className={inputCls}
-              />
+              >
+                <option value={0}>— Select —</option>
+                {(departments ?? []).filter(d => d.description.trim()).map((d) => (
+                  <option key={d.keyValue} value={d.keyValue}>
+                    {d.keyValue} — {d.description.trim()}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Location</label>

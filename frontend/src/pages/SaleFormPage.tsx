@@ -59,6 +59,16 @@ export default function SaleFormPage() {
     queryFn: () => getLookupCodes('M'),
   })
 
+  const { data: saleTypes } = useQuery({
+    queryKey: ['lookup-codes', 'S'],
+    queryFn: () => getLookupCodes('S'),
+  })
+
+  const { data: departments } = useQuery({
+    queryKey: ['lookup-codes', 'D'],
+    queryFn: () => getLookupCodes('D'),
+  })
+
   const { data: sale, isLoading: loadingSale } = useQuery({
     queryKey: ['sale', id],
     queryFn: () => getSale(id!),
@@ -195,13 +205,18 @@ export default function SaleFormPage() {
             </div>
             <div>
               <label className={labelCls}>Sale Type</label>
-              <input
-                type="text"
+              <select
                 value={form.saleType}
                 onChange={(e) => set('saleType', e.target.value)}
                 className={inputCls}
-                maxLength={5}
-              />
+              >
+                <option value="">— Select —</option>
+                {(saleTypes ?? []).filter(s => s.description.trim()).map((s) => (
+                  <option key={s.keyValue} value={s.description.trim()}>
+                    {s.description.trim()}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Sale Info</label>
@@ -215,12 +230,18 @@ export default function SaleFormPage() {
             </div>
             <div>
               <label className={labelCls}>Department</label>
-              <input
-                type="number"
+              <select
                 value={form.department}
                 onChange={(e) => set('department', parseInt(e.target.value) || 0)}
                 className={inputCls}
-              />
+              >
+                <option value={0}>— Select —</option>
+                {(departments ?? []).filter(d => d.description.trim()).map((d) => (
+                  <option key={d.keyValue} value={d.keyValue}>
+                    {d.keyValue} — {d.description.trim()}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Payment Type</label>
