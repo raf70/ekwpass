@@ -24,6 +24,7 @@ import InvoicePage from './pages/InvoicePage'
 import ReportsPage from './pages/ReportsPage'
 import StatementPage from './pages/StatementPage'
 import SettingsPage from './pages/SettingsPage'
+import MonthEndPage from './pages/MonthEndPage'
 
 function ProtectedRoute() {
   const { user, isLoading } = useAuth()
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="sales/:id" element={<SaleDetailPage />} />
         <Route path="sales/:id/edit" element={<SaleFormPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="month-end" element={<MonthEndPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

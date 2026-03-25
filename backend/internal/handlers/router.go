@@ -47,6 +47,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	reportsH := NewReportsHandler(pool, arRepo)
 	settingsH := NewSettingsHandler(shopSettingsRepo)
 	lookupCodeH := NewLookupCodeHandler(lookupCodeRepo)
+	monthEndH := NewMonthEndHandler(pool, arRepo, shopSettingsRepo)
 
 	api := r.Group("/api")
 	api.GET("/health", healthH.Health)
@@ -126,6 +127,10 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	protected.GET("/settings", settingsH.Get)
 	protected.PUT("/settings", settingsH.Update)
 	protected.GET("/lookup-codes", lookupCodeH.List)
+
+	monthEnd := protected.Group("/month-end")
+	monthEnd.GET("/preview", monthEndH.Preview)
+	monthEnd.POST("/process", monthEndH.Process)
 
 	vehicles := protected.Group("/vehicles")
 	vehicles.POST("", vehicleH.Create)

@@ -67,33 +67,35 @@ func (r *ShopSettingsRepo) FindByShop(ctx context.Context, shopID uuid.UUID) (*m
 func (r *ShopSettingsRepo) Update(ctx context.Context, s *models.ShopSettings) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE shop_settings SET
-			shop_supplies_rate     = $2,
-			shop_supplies_taxable  = $3,
-			doc_rate               = $4,
-			shop_rate              = $5,
-			gst_number             = $6,
-			use_hst                = $7,
-			federal_tax_rate       = $8,
-			provincial_tax_rate    = $9,
-			ar_interest_rate       = $10,
-			ar_delay_processing    = $11,
-			supplier_processing    = $12,
-			core_add_on            = $13,
-			default_city           = $14,
-			default_province       = $15,
-			default_comment        = $16,
-			reminder_interval_days = $17,
-			print_tech_detail      = $18,
-			print_invoice_hours    = $19,
-			print_invoice_supplier = $20,
-			payment_type1          = $21,
-			payment_type2          = $22,
-			payment_type3          = $23,
-			payment_type4          = $24,
-			payment_type5          = $25,
-			skip_lines             = $26
+			system_month           = $2,
+			shop_supplies_rate     = $3,
+			shop_supplies_taxable  = $4,
+			doc_rate               = $5,
+			shop_rate              = $6,
+			gst_number             = $7,
+			use_hst                = $8,
+			federal_tax_rate       = $9,
+			provincial_tax_rate    = $10,
+			ar_interest_rate       = $11,
+			ar_delay_processing    = $12,
+			supplier_processing    = $13,
+			core_add_on            = $14,
+			default_city           = $15,
+			default_province       = $16,
+			default_comment        = $17,
+			reminder_interval_days = $18,
+			print_tech_detail      = $19,
+			print_invoice_hours    = $20,
+			print_invoice_supplier = $21,
+			payment_type1          = $22,
+			payment_type2          = $23,
+			payment_type3          = $24,
+			payment_type4          = $25,
+			payment_type5          = $26,
+			skip_lines             = $27
 		WHERE shop_id = $1`,
 		s.ShopID,
+		s.SystemMonth,
 		s.ShopSuppliesRate, s.ShopSuppliesTaxable,
 		s.DocRate, s.ShopRate,
 		s.GSTNumber,
@@ -112,4 +114,19 @@ func (r *ShopSettingsRepo) Update(ctx context.Context, s *models.ShopSettings) e
 		return fmt.Errorf("update shop settings: %w", err)
 	}
 	return nil
+}
+
+func (r *ShopSettingsRepo) AdvanceSystemMonth(ctx context.Context, shopID uuid.UUID) (int, error) {
+	var newMonth int
+	err := r.pool.QueryRow(ctx, `
+		UPDATE shop_settings SET
+			system_month = CASE WHEN system_month >= 12 THEN 1 ELSE system_month + 1 END,
+			updated_at = NOW()
+		WHERE shop_id = $1
+		RETURNING system_month`, shopID,
+	).Scan(&newMonth)
+	if err != nil {
+		return 0, fmt.Errorf("advance system month: %w", err)
+	}
+	return newMonth, nil
 }

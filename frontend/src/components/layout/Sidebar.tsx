@@ -7,6 +7,7 @@ import {
   Wrench,
   ShoppingCart,
   FileText,
+  CalendarCheck,
   Settings,
   X,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/work-orders', label: 'Work Orders', icon: Wrench },
   { to: '/sales', label: 'Sales', icon: ShoppingCart },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/month-end', label: 'Month-End', icon: CalendarCheck },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 

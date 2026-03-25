@@ -190,10 +190,24 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Numbering (read-only info) */}
+        {/* Numbering & Period */}
         <section className="rounded-xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Numbering</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Numbering &amp; Period</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="System Month" hint="Current accounting period">
+              <select
+                value={form.systemMonth}
+                onChange={(e) => set('systemMonth', parseInt(e.target.value))}
+                className={inputClass}
+              >
+                {[
+                  'January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December',
+                ].map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{name}</option>
+                ))}
+              </select>
+            </Field>
             <div>
               <p className="text-sm text-slate-500">Next Invoice #</p>
               <p className="text-lg font-semibold text-slate-900">{form.nextInvoiceNumber}</p>

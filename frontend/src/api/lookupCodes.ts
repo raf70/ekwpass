@@ -16,7 +16,7 @@ export interface LookupCode {
 }
 
 export async function getLookupCodes(tableId: string): Promise<LookupCode[]> {
-  const { data } = await client.get<LookupCode[]>('/lookup-codes', {
+  const { data } = await client.get<LookupCode[]>('/api/lookup-codes', {
     params: { tableId },
   })
   return data
