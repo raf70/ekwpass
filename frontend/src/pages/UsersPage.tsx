@@ -30,7 +30,7 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth()
   const [showCreate, setShowCreate] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [editData, setEditData] = useState({ name: '', email: '', role: 'front_desk', isActive: true })
+  const [editData, setEditData] = useState({ name: '', email: '', role: 'front_desk', isActive: true, updatedAt: '' })
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'front_desk' })
   const [createError, setCreateError] = useState('')
   const [editError, setEditError] = useState('')
@@ -82,7 +82,7 @@ export default function UsersPage() {
 
   function startEdit(u: User) {
     setEditId(u.id)
-    setEditData({ name: u.name, email: u.email, role: u.role, isActive: u.isActive })
+    setEditData({ name: u.name, email: u.email, role: u.role, isActive: u.isActive, updatedAt: u.updatedAt })
     setEditError('')
     setResetId(null)
   }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,10 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 	s.ShopID = claims.ShopID
 
 	if err := h.repo.Update(c.Request.Context(), &s); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Settings were modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings"})
 		return
 	}

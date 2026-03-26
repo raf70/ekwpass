@@ -107,6 +107,7 @@ export default function SaleFormPage() {
         customerId: data.customerId || null,
         supplierId: data.supplierId || null,
         technicianId: data.technicianId || null,
+        updatedAt: sale?.updatedAt,
       }
       return isEdit ? updateSale(id!, payload) : createSale(payload)
     },
@@ -117,8 +118,8 @@ export default function SaleFormPage() {
       }
       navigate(`/sales/${saved.id}`)
     },
-    onError: () => {
-      setError('Failed to save sale. Please check the form and try again.')
+    onError: (err: any) => {
+      setError(err.response?.data?.error || 'Failed to save sale. Please check the form and try again.')
     },
   })
 

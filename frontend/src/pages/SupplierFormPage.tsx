@@ -85,7 +85,7 @@ export default function SupplierFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: (data: FormData) =>
-      isEdit ? updateSupplier(id!, data) : createSupplier(data),
+      isEdit ? updateSupplier(id!, { ...data, updatedAt: supplier?.updatedAt }) : createSupplier(data),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
       if (isEdit) {
@@ -93,8 +93,8 @@ export default function SupplierFormPage() {
       }
       navigate(`/suppliers/${saved.id}`)
     },
-    onError: () => {
-      setError('Failed to save supplier. Please check the form and try again.')
+    onError: (err: any) => {
+      setError(err.response?.data?.error || 'Failed to save supplier. Please check the form and try again.')
     },
   })
 

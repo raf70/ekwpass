@@ -106,24 +106,27 @@ func (r *VehicleRepo) Create(ctx context.Context, v *models.Vehicle) error {
 }
 
 func (r *VehicleRepo) Update(ctx context.Context, v *models.Vehicle) error {
+	expectedAt := v.UpdatedAt
 	v.UpdatedAt = time.Now()
 
-	query := `UPDATE vehicles SET
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE vehicles SET
 		customer_id = $1, make = $2, model = $3, year = $4, vin = $5,
 		production_date = $6, odometer = $7, plate = $8, color = $9,
 		last_service_date = $10, reminder_interval_days = $11, car_plan = $12,
 		engine = $13, safety_expiry = $14, comments = $15, updated_at = $16
-		WHERE id = $17 AND shop_id = $18`
-
-	_, err := r.pool.Exec(ctx, query,
+		WHERE id = $17 AND shop_id = $18 AND updated_at = $19`,
 		v.CustomerID, v.Make, v.Model, v.Year, v.VIN,
 		v.ProductionDate, v.Odometer, v.Plate, v.Color,
 		v.LastServiceDate, v.ReminderIntervalDays, v.CarPlan,
 		v.Engine, v.SafetyExpiry, v.Comments, v.UpdatedAt,
-		v.ID, v.ShopID,
+		v.ID, v.ShopID, expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update vehicle: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
 	}
 	return nil
 }

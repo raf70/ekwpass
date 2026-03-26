@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rkulczycki/ekwpass/internal/middleware"
 	"github.com/rkulczycki/ekwpass/internal/models"
+	"github.com/rkulczycki/ekwpass/internal/repositories"
 	"github.com/rkulczycki/ekwpass/internal/services"
 )
 
@@ -117,6 +119,10 @@ func (h *WorkOrderHandler) Update(c *gin.Context) {
 	wo.ShopID = claims.ShopID
 
 	if err := h.service.Update(c.Request.Context(), &wo); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Record was modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update work order"})
 		return
 	}

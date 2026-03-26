@@ -23,6 +23,7 @@ export interface UpdateUserRequest {
   email: string
   role: string
   isActive: boolean
+  updatedAt?: string
 }
 
 export async function getUsers(): Promise<User[]> {

@@ -55,15 +55,9 @@ func (h *WorkOrderLineHandler) Create(c *gin.Context) {
 		line.LineType = "part"
 	}
 
-	if err := h.lineRepo.Create(c.Request.Context(), &line); err != nil {
-		log.Printf("ERROR create wo line: %v", err)
+	if err := h.lineRepo.CreateAndRecalc(c.Request.Context(), claims.ShopID, &line); err != nil {
+		log.Printf("ERROR create wo line + recalc: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create line"})
-		return
-	}
-
-	if err := h.lineRepo.RecalcTotals(c.Request.Context(), claims.ShopID, woID); err != nil {
-		log.Printf("ERROR recalc wo totals: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to recalculate totals"})
 		return
 	}
 
@@ -79,14 +73,9 @@ func (h *WorkOrderLineHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	woID, err := h.lineRepo.Delete(c.Request.Context(), lineID)
-	if err != nil {
+	if err := h.lineRepo.DeleteAndRecalc(c.Request.Context(), claims.ShopID, lineID); err != nil {
+		log.Printf("ERROR delete wo line + recalc: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete line"})
-		return
-	}
-
-	if err := h.lineRepo.RecalcTotals(c.Request.Context(), claims.ShopID, woID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to recalculate totals"})
 		return
 	}
 

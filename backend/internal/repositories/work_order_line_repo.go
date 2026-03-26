@@ -7,9 +7,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rkulczycki/ekwpass/internal/models"
 )
+
+type dbQuerier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
 
 type WorkOrderLineRepo struct {
 	pool *pgxpool.Pool
@@ -60,22 +68,21 @@ func (r *WorkOrderLineRepo) ListByWorkOrder(ctx context.Context, workOrderID uui
 	return lines, nil
 }
 
-func (r *WorkOrderLineRepo) Create(ctx context.Context, line *models.WorkOrderLine) error {
+func (r *WorkOrderLineRepo) createLine(ctx context.Context, q dbQuerier, line *models.WorkOrderLine) error {
 	line.ID = uuid.New()
 	now := time.Now()
 	line.CreatedAt = now
 	line.UpdatedAt = now
 
-	// Auto-assign next sequence number
 	var maxSeq int
-	_ = r.pool.QueryRow(ctx,
+	_ = q.QueryRow(ctx,
 		`SELECT COALESCE(MAX(sequence), 0) FROM work_order_lines
 		 WHERE work_order_id = $1 AND line_type = $2`,
 		line.WorkOrderID, line.LineType,
 	).Scan(&maxSeq)
 	line.Sequence = maxSeq + 1
 
-	_, err := r.pool.Exec(ctx,
+	_, err := q.Exec(ctx,
 		`INSERT INTO work_order_lines (
 			id, work_order_id, line_type, sequence,
 			qty, part_code, description, price, cost,
@@ -91,9 +98,13 @@ func (r *WorkOrderLineRepo) Create(ctx context.Context, line *models.WorkOrderLi
 	return nil
 }
 
-func (r *WorkOrderLineRepo) Delete(ctx context.Context, lineID uuid.UUID) (uuid.UUID, error) {
+func (r *WorkOrderLineRepo) Create(ctx context.Context, line *models.WorkOrderLine) error {
+	return r.createLine(ctx, r.pool, line)
+}
+
+func (r *WorkOrderLineRepo) deleteLine(ctx context.Context, q dbQuerier, lineID uuid.UUID) (uuid.UUID, error) {
 	var woID uuid.UUID
-	err := r.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`DELETE FROM work_order_lines WHERE id = $1 RETURNING work_order_id`,
 		lineID,
 	).Scan(&woID)
@@ -103,6 +114,59 @@ func (r *WorkOrderLineRepo) Delete(ctx context.Context, lineID uuid.UUID) (uuid.
 	return woID, nil
 }
 
+func (r *WorkOrderLineRepo) Delete(ctx context.Context, lineID uuid.UUID) (uuid.UUID, error) {
+	return r.deleteLine(ctx, r.pool, lineID)
+}
+
+// CreateAndRecalc atomically creates a line and recalculates work order totals
+// using a transaction with row-level locking on the parent work order.
+func (r *WorkOrderLineRepo) CreateAndRecalc(ctx context.Context, shopID uuid.UUID, line *models.WorkOrderLine) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM work_orders WHERE id = $1 FOR UPDATE`, line.WorkOrderID); err != nil {
+		return fmt.Errorf("lock work order: %w", err)
+	}
+
+	if err := r.createLine(ctx, tx, line); err != nil {
+		return err
+	}
+
+	if err := r.recalcTotals(ctx, tx, shopID, line.WorkOrderID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// DeleteAndRecalc atomically deletes a line and recalculates work order totals
+// using a transaction with row-level locking on the parent work order.
+func (r *WorkOrderLineRepo) DeleteAndRecalc(ctx context.Context, shopID, lineID uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	woID, err := r.deleteLine(ctx, tx, lineID)
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM work_orders WHERE id = $1 FOR UPDATE`, woID); err != nil {
+		return fmt.Errorf("lock work order: %w", err)
+	}
+
+	if err := r.recalcTotals(ctx, tx, shopID, woID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func cents(v float64) float64 {
 	return math.Round(v*100) / 100
 }
@@ -110,9 +174,13 @@ func cents(v float64) float64 {
 // RecalcTotals recomputes parts/jobs counts, shop supplies, discounts, and
 // taxes on the parent work order using current shop_settings rates.
 func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderID uuid.UUID) error {
+	return r.recalcTotals(ctx, r.pool, shopID, workOrderID)
+}
+
+func (r *WorkOrderLineRepo) recalcTotals(ctx context.Context, q dbQuerier, shopID, workOrderID uuid.UUID) error {
 	var partsCount, jobsCount int
 	var partsTaxable, partsNontaxable, jobsTaxable, jobsNontaxable float64
-	err := r.pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE line_type = 'part'),
 			COALESCE(SUM(qty * price) FILTER (WHERE line_type = 'part' AND is_taxable), 0),
@@ -130,7 +198,7 @@ func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderI
 	var ssRate float64
 	var ssTaxable, useHST bool
 	var docRate, fedRate, provRate float64
-	err = r.pool.QueryRow(ctx, `
+	err = q.QueryRow(ctx, `
 		SELECT COALESCE(shop_supplies_rate, 0), COALESCE(shop_supplies_taxable, false),
 		       COALESCE(doc_rate, 0),
 		       COALESCE(federal_tax_rate, 0), COALESCE(provincial_tax_rate, 0),
@@ -143,7 +211,7 @@ func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderI
 
 	var jobsDiscPct, partsDiscPct float64
 	var pstExempt, gstExempt bool
-	err = r.pool.QueryRow(ctx, `
+	err = q.QueryRow(ctx, `
 		SELECT COALESCE(jobs_discount_pct, 0), COALESCE(parts_discount_pct, 0),
 		       COALESCE(pst_exempt, false), COALESCE(gst_exempt, false)
 		FROM work_orders WHERE id = $1`, workOrderID,
@@ -158,7 +226,6 @@ func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderI
 	totalParts := partsTaxable + partsNontaxable
 	shopSuppliesAmt := cents(totalParts * ssRate / 100)
 
-	// Taxable base after proportional discounts
 	taxBase := jobsTaxable*(1-jobsDiscPct/100) + partsTaxable*(1-partsDiscPct/100)
 	if ssTaxable {
 		taxBase += shopSuppliesAmt
@@ -179,7 +246,7 @@ func (r *WorkOrderLineRepo) RecalcTotals(ctx context.Context, shopID, workOrderI
 	}
 	totalTax := cents(gstAmt + pstAmt)
 
-	_, err = r.pool.Exec(ctx, `
+	_, err = q.Exec(ctx, `
 		UPDATE work_orders SET
 			parts_count = $3, parts_taxable = $4, parts_nontaxable = $5,
 			parts_discount_amt = $6,

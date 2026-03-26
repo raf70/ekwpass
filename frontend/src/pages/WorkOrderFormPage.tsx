@@ -236,6 +236,7 @@ export default function WorkOrderFormPage() {
         remark1,
         remark2,
         remark3,
+        updatedAt: existingWO?.updatedAt,
       }
       return isEdit ? updateWorkOrder(id!, payload) : createWorkOrder(payload)
     },
@@ -244,8 +245,8 @@ export default function WorkOrderFormPage() {
       queryClient.invalidateQueries({ queryKey: ['work-order', id] })
       navigate(`/work-orders/${wo.id}`)
     },
-    onError: () => {
-      setError(`Failed to ${isEdit ? 'update' : 'create'} work order. Please try again.`)
+    onError: (err: any) => {
+      setError(err.response?.data?.error || `Failed to ${isEdit ? 'update' : 'create'} work order. Please try again.`)
     },
   })
 

@@ -60,6 +60,9 @@ export default function LookupCodesPage() {
       setEditId(null)
       setEditData({})
     },
+    onError: (err: any) => {
+      alert(err.response?.data?.error || 'Failed to update lookup code.')
+    },
   })
 
   const deleteMut = useMutation({
@@ -72,7 +75,7 @@ export default function LookupCodesPage() {
 
   function startEdit(code: LookupCode) {
     setEditId(code.id)
-    setEditData({ description: code.description, department: code.department, rate: code.rate, hours: code.hours })
+    setEditData({ description: code.description, department: code.department, rate: code.rate, hours: code.hours, updatedAt: code.updatedAt })
   }
 
   if (loadingCats) {

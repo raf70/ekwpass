@@ -95,14 +95,20 @@ func (r *UserRepo) Create(ctx context.Context, user *models.User) error {
 	return nil
 }
 
-func (r *UserRepo) Update(ctx context.Context, user *models.User) error {
-	_, err := r.pool.Exec(ctx,
-		`UPDATE users SET name = $3, email = $4, role = $5, is_active = $6, updated_at = NOW()
-		 WHERE id = $1 AND shop_id = $2`,
+func (r *UserRepo) Update(ctx context.Context, user *models.User, expectedAt time.Time) error {
+	user.UpdatedAt = time.Now()
+
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE users SET name = $3, email = $4, role = $5, is_active = $6, updated_at = $7
+		 WHERE id = $1 AND shop_id = $2 AND updated_at = $8`,
 		user.ID, user.ShopID, user.Name, user.Email, user.Role, user.IsActive,
+		user.UpdatedAt, expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
 	}
 	return nil
 }

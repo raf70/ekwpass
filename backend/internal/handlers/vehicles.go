@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rkulczycki/ekwpass/internal/middleware"
 	"github.com/rkulczycki/ekwpass/internal/models"
+	"github.com/rkulczycki/ekwpass/internal/repositories"
 	"github.com/rkulczycki/ekwpass/internal/services"
 )
 
@@ -96,6 +98,10 @@ func (h *VehicleHandler) Update(c *gin.Context) {
 	vehicle.ShopID = claims.ShopID
 
 	if err := h.service.Update(c.Request.Context(), &vehicle); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Record was modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update vehicle"})
 		return
 	}

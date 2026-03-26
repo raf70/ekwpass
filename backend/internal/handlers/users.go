@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -96,10 +98,11 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 type updateUserRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Role     string `json:"role" binding:"required,oneof=admin technician front_desk"`
-	IsActive bool   `json:"isActive"`
+	Name      string `json:"name" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Role      string `json:"role" binding:"required,oneof=admin technician front_desk"`
+	IsActive  bool   `json:"isActive"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
@@ -152,6 +155,13 @@ func (h *UserHandler) Update(c *gin.Context) {
 		}
 	}
 
+	expectedAt := existing.UpdatedAt
+	if req.UpdatedAt != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, req.UpdatedAt); err == nil {
+			expectedAt = parsed
+		}
+	}
+
 	user := &models.User{
 		ID:       id,
 		ShopID:   claims.ShopID,
@@ -161,7 +171,11 @@ func (h *UserHandler) Update(c *gin.Context) {
 		IsActive: req.IsActive,
 	}
 
-	if err := h.repo.Update(c.Request.Context(), user); err != nil {
+	if err := h.repo.Update(c.Request.Context(), user, expectedAt); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Record was modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
 		return
 	}

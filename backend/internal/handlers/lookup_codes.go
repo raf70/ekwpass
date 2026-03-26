@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -82,6 +83,10 @@ func (h *LookupCodeHandler) Update(c *gin.Context) {
 	code.ID = id
 	code.ShopID = claims.ShopID
 	if err := h.repo.Update(c.Request.Context(), &code); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Record was modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update lookup code"})
 		return
 	}

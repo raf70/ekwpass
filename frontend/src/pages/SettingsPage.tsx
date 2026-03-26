@@ -44,13 +44,19 @@ export default function SettingsPage() {
     if (data) setForm(data)
   }, [data])
 
+  const [saveError, setSaveError] = useState('')
+
   const saveMutation = useMutation({
     mutationFn: () => updateSettings(form!),
     onSuccess: (updated) => {
       setForm(updated)
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       setSaved(true)
+      setSaveError('')
       setTimeout(() => setSaved(false), 3000)
+    },
+    onError: (err: any) => {
+      setSaveError(err.response?.data?.error || 'Failed to save settings.')
     },
   })
 
@@ -88,7 +94,7 @@ export default function SettingsPage() {
 
       {saveMutation.isError && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Failed to save settings. Please try again.
+          {saveError || 'Failed to save settings. Please try again.'}
         </div>
       )}
 

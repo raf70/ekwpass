@@ -184,8 +184,9 @@ These existed in the legacy system but may not be needed in the new one:
 
 ## Concurrency Control
 
-- [ ] **Optimistic locking on updates** — currently all entity updates (work orders, customers, parts, suppliers, sales, settings) use last-write-wins with no conflict detection. Two users editing the same record simultaneously will silently overwrite each other's changes. Fix: include `updated_at` in the PUT request payload, add `AND updated_at = $expected` to the UPDATE WHERE clause, return `409 Conflict` if 0 rows affected. Frontend should display "Record modified by another user — please refresh."
-- [ ] **RecalcTotals race condition** — if two users add/remove lines on the same work order simultaneously, concurrent `RecalcTotals` calls could produce stale results. Consider wrapping line mutation + recalc in a database transaction with `SELECT ... FOR UPDATE` on the work order row.
+
+- [x] **Optimistic locking on updates** — all entity Update methods (customers, vehicles, parts, suppliers, sales, work orders, users, settings, lookup codes) now include `AND updated_at = $expected` in the WHERE clause. If 0 rows affected, the repo returns `ErrStaleUpdate` and the handler responds with `409 Conflict`. Frontend form pages send `updatedAt` in PUT payloads and display the conflict message to the user.
+- [x] **RecalcTotals race condition** — line Create and Delete operations are now wrapped in a database transaction with `SELECT ... FOR UPDATE` on the parent work order row (`CreateAndRecalc` / `DeleteAndRecalc`), preventing concurrent recalculations from producing stale totals.
 
 > **What is already safe:**
 > - Invoice/sale number generation uses atomic `UPDATE ... RETURNING` (no duplicates)
@@ -208,3 +209,4 @@ These existed in the legacy system but may not be needed in the new one:
 - [x] Month-end processing (AR aging + interest + statements + advance period)
 - [x] Lookup codes CRUD UI + dropdowns in sale/part forms
 - [x] User management (CRUD, roles, password reset, admin-only access)
+- [x] Concurrency control (optimistic locking on all entity updates, transactional RecalcTotals)

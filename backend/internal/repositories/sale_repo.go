@@ -146,6 +146,7 @@ func (r *SaleRepo) Create(ctx context.Context, sale *models.Sale) error {
 }
 
 func (r *SaleRepo) Update(ctx context.Context, sale *models.Sale) error {
+	expectedAt := sale.UpdatedAt
 	sale.UpdatedAt = time.Now()
 
 	tag, err := r.pool.Exec(ctx,
@@ -157,7 +158,7 @@ func (r *SaleRepo) Update(ctx context.Context, sale *models.Sale) error {
 			supplier_id = $14, supplier_invoice = $15,
 			part_code = $16, cost = $17, list_price = $18,
 			technician_id = $19, updated_at = $20
-		WHERE id = $1 AND shop_id = $2`,
+		WHERE id = $1 AND shop_id = $2 AND updated_at = $21`,
 		sale.ID, sale.ShopID,
 		sale.CustomerID, sale.Status,
 		sale.SaleType, sale.SaleInfo, sale.Date,
@@ -166,12 +167,13 @@ func (r *SaleRepo) Update(ctx context.Context, sale *models.Sale) error {
 		sale.SupplierID, sale.SupplierInvoice,
 		sale.PartCode, sale.Cost, sale.ListPrice,
 		sale.TechnicianID, sale.UpdatedAt,
+		expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update sale: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("sale not found")
+		return ErrStaleUpdate
 	}
 	return nil
 }

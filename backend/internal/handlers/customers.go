@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -116,6 +117,10 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 	customer.ShopID = claims.ShopID
 
 	if err := h.service.Update(c.Request.Context(), &customer); err != nil {
+		if errors.Is(err, repositories.ErrStaleUpdate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Record was modified by another user. Please refresh and try again."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update customer"})
 		return
 	}

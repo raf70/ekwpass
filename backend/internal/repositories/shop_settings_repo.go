@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -65,7 +66,10 @@ func (r *ShopSettingsRepo) FindByShop(ctx context.Context, shopID uuid.UUID) (*m
 }
 
 func (r *ShopSettingsRepo) Update(ctx context.Context, s *models.ShopSettings) error {
-	_, err := r.pool.Exec(ctx, `
+	expectedAt := s.UpdatedAt
+	now := time.Now()
+
+	tag, err := r.pool.Exec(ctx, `
 		UPDATE shop_settings SET
 			system_month           = $2,
 			shop_supplies_rate     = $3,
@@ -92,8 +96,9 @@ func (r *ShopSettingsRepo) Update(ctx context.Context, s *models.ShopSettings) e
 			payment_type3          = $24,
 			payment_type4          = $25,
 			payment_type5          = $26,
-			skip_lines             = $27
-		WHERE shop_id = $1`,
+			skip_lines             = $27,
+			updated_at             = $28
+		WHERE shop_id = $1 AND updated_at = $29`,
 		s.ShopID,
 		s.SystemMonth,
 		s.ShopSuppliesRate, s.ShopSuppliesTaxable,
@@ -109,10 +114,15 @@ func (r *ShopSettingsRepo) Update(ctx context.Context, s *models.ShopSettings) e
 		s.PaymentType1, s.PaymentType2, s.PaymentType3,
 		s.PaymentType4, s.PaymentType5,
 		s.SkipLines,
+		now, expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update shop settings: %w", err)
 	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
+	}
+	s.UpdatedAt = now
 	return nil
 }
 

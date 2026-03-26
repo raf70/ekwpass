@@ -24,6 +24,10 @@ client.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       window.location.href = '/login'
     }
+    if (error.response?.status === 409) {
+      const msg = error.response?.data?.error || 'Record was modified by another user. Please refresh and try again.'
+      error.message = msg
+    }
     return Promise.reject(error)
   },
 )

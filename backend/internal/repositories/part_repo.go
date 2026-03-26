@@ -190,9 +190,10 @@ func (r *PartRepo) Create(ctx context.Context, p *models.Part) error {
 }
 
 func (r *PartRepo) Update(ctx context.Context, p *models.Part) error {
+	expectedAt := p.UpdatedAt
 	p.UpdatedAt = time.Now()
 
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE parts SET
 			code = $3, manufacturer = $4,
 			alt_code_a = $5, alt_mfgr_a = $6, alt_code_b = $7, alt_mfgr_b = $8,
@@ -202,7 +203,7 @@ func (r *PartRepo) Update(ctx context.Context, p *models.Part) error {
 			reorder_qty = $19, reorder_amount = $20,
 			discount1 = $21, discount2 = $22, discount3 = $23,
 			no_update = $24, updated_at = $25
-		WHERE id = $1 AND shop_id = $2`,
+		WHERE id = $1 AND shop_id = $2 AND updated_at = $26`,
 		p.ID, p.ShopID,
 		p.Code, p.Manufacturer,
 		p.AltCodeA, p.AltMfgrA, p.AltCodeB, p.AltMfgrB,
@@ -212,9 +213,13 @@ func (r *PartRepo) Update(ctx context.Context, p *models.Part) error {
 		p.ReorderQty, p.ReorderAmount,
 		p.Discount1, p.Discount2, p.Discount3,
 		p.NoUpdate, p.UpdatedAt,
+		expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update part: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
 	}
 	return nil
 }

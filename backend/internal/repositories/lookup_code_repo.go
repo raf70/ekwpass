@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -92,16 +93,27 @@ func (r *LookupCodeRepo) Create(ctx context.Context, c *models.LookupCode) error
 }
 
 func (r *LookupCodeRepo) Update(ctx context.Context, c *models.LookupCode) error {
-	_, err := r.pool.Exec(ctx,
+	expectedAt := c.UpdatedAt
+	c.UpdatedAt = time.Now()
+
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE lookup_codes SET
 			description = $3, department = $4, hours = $5, rate = $6,
-			sales = $7, cost = $8, amount = $9, flag = $10
-		 WHERE id = $1 AND shop_id = $2`,
+			sales = $7, cost = $8, amount = $9, flag = $10,
+			updated_at = $11
+		 WHERE id = $1 AND shop_id = $2 AND updated_at = $12`,
 		c.ID, c.ShopID,
 		c.Description, c.Department, c.Hours, c.Rate,
 		c.Sales, c.Cost, c.Amount, c.Flag,
+		c.UpdatedAt, expectedAt,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update lookup code: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
+	}
+	return nil
 }
 
 func (r *LookupCodeRepo) Delete(ctx context.Context, shopID, id uuid.UUID) error {

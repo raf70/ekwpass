@@ -103,7 +103,7 @@ export default function PartFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: (data: FormData) =>
-      isEdit ? updatePart(id!, data) : createPart(data),
+      isEdit ? updatePart(id!, { ...data, updatedAt: part?.updatedAt }) : createPart(data),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['parts'] })
       if (isEdit) {
@@ -111,8 +111,8 @@ export default function PartFormPage() {
       }
       navigate(`/parts/${saved.id}`)
     },
-    onError: () => {
-      setError('Failed to save part. Please check the form and try again.')
+    onError: (err: any) => {
+      setError(err.response?.data?.error || 'Failed to save part. Please check the form and try again.')
     },
   })
 

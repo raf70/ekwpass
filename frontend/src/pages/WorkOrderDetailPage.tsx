@@ -188,6 +188,9 @@ export default function WorkOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-order', id] })
     },
+    onError: (err: any) => {
+      alert(err.response?.data?.error || 'Failed to update work order status.')
+    },
   })
 
   function handleStatusChange(newStatus: string, confirmMsg: string) {

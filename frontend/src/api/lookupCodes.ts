@@ -13,6 +13,8 @@ export interface LookupCode {
   cost: number
   amount: number
   flag: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface LookupCategory {

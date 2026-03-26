@@ -160,6 +160,7 @@ func (r *WorkOrderRepo) Create(ctx context.Context, wo *models.WorkOrder) error 
 }
 
 func (r *WorkOrderRepo) Update(ctx context.Context, wo *models.WorkOrder) error {
+	expectedAt := wo.UpdatedAt
 	wo.UpdatedAt = time.Now()
 
 	tag, err := r.pool.Exec(ctx,
@@ -184,7 +185,7 @@ func (r *WorkOrderRepo) Update(ctx context.Context, wo *models.WorkOrder) error 
 			remark2 = $20,
 			remark3 = $21,
 			updated_at = $22
-		WHERE id = $1 AND shop_id = $2`,
+		WHERE id = $1 AND shop_id = $2 AND updated_at = $23`,
 		wo.ID, wo.ShopID,
 		wo.Status, wo.Date,
 		wo.CustomerID, wo.VehicleID,
@@ -194,12 +195,13 @@ func (r *WorkOrderRepo) Update(ctx context.Context, wo *models.WorkOrder) error 
 		wo.PSTExempt, wo.GSTExempt,
 		wo.Remark1, wo.Remark2, wo.Remark3,
 		wo.UpdatedAt,
+		expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update work order: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("work order not found")
+		return ErrStaleUpdate
 	}
 	return nil
 }

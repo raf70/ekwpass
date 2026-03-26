@@ -74,7 +74,7 @@ export default function CustomerFormPage() {
 
   const saveMutation = useMutation({
     mutationFn: (data: FormData) =>
-      isEdit ? updateCustomer(id!, data) : createCustomer(data),
+      isEdit ? updateCustomer(id!, { ...data, updatedAt: customer?.updatedAt }) : createCustomer(data),
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
       if (isEdit) {
@@ -82,8 +82,8 @@ export default function CustomerFormPage() {
       }
       navigate(`/customers/${saved.id}`)
     },
-    onError: () => {
-      setError('Failed to save customer. Please check the form and try again.')
+    onError: (err: any) => {
+      setError(err.response?.data?.error || 'Failed to save customer. Please check the form and try again.')
     },
   })
 

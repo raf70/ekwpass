@@ -138,9 +138,10 @@ func (r *SupplierRepo) Create(ctx context.Context, sup *models.Supplier) error {
 }
 
 func (r *SupplierRepo) Update(ctx context.Context, sup *models.Supplier) error {
+	expectedAt := sup.UpdatedAt
 	sup.UpdatedAt = time.Now()
 
-	_, err := r.pool.Exec(ctx,
+	tag, err := r.pool.Exec(ctx,
 		`UPDATE suppliers SET
 			code = $3, name = $4,
 			address1 = $5, address2 = $6, city = $7, province = $8,
@@ -150,7 +151,7 @@ func (r *SupplierRepo) Update(ctx context.Context, sup *models.Supplier) error {
 			balance = $16, opening_balance = $17,
 			is_active = $18, pst_gst_flag = $19,
 			updated_at = $20
-		WHERE id = $1 AND shop_id = $2`,
+		WHERE id = $1 AND shop_id = $2 AND updated_at = $21`,
 		sup.ID, sup.ShopID,
 		sup.Code, sup.Name,
 		sup.Address1, sup.Address2, sup.City, sup.Province,
@@ -160,9 +161,13 @@ func (r *SupplierRepo) Update(ctx context.Context, sup *models.Supplier) error {
 		sup.Balance, sup.OpeningBalance,
 		sup.IsActive, sup.PSTGSTFlag,
 		sup.UpdatedAt,
+		expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update supplier: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
 	}
 	return nil
 }

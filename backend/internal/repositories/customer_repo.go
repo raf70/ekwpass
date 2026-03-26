@@ -136,9 +136,11 @@ func (r *CustomerRepo) Create(ctx context.Context, c *models.Customer) error {
 }
 
 func (r *CustomerRepo) Update(ctx context.Context, c *models.Customer) error {
+	expectedAt := c.UpdatedAt
 	c.UpdatedAt = time.Now()
 
-	query := `UPDATE customers SET
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE customers SET
 		phone = $1, phone_secondary = $2, name = $3, street = $4, city = $5,
 		province = $6, postal_code = $7, attention = $8, credit_limit = $9,
 		pst_exempt = $10, pst_number = $11, gst_exempt = $12, gst_number = $13,
@@ -147,9 +149,7 @@ func (r *CustomerRepo) Update(ctx context.Context, c *models.Customer) error {
 		last_service_date = $22, ar_balance = $23, ar_current = $24, ar_30 = $25,
 		ar_60 = $26, ar_90 = $27, ar_stmt_balance = $28, ar_stmt_flag = $29,
 		updated_at = $30
-		WHERE id = $31 AND shop_id = $32`
-
-	_, err := r.pool.Exec(ctx, query,
+		WHERE id = $31 AND shop_id = $32 AND updated_at = $33`,
 		c.Phone, c.PhoneSecondary, c.Name, c.Street, c.City,
 		c.Province, c.PostalCode, c.Attention, c.CreditLimit,
 		c.PSTExempt, c.PSTNumber, c.GSTExempt, c.GSTNumber,
@@ -157,10 +157,13 @@ func (r *CustomerRepo) Update(ctx context.Context, c *models.Customer) error {
 		c.Category1, c.Category2, c.YTDSales, c.YTDGST,
 		c.LastServiceDate, c.ARBalance, c.ARCurrent, c.AR30,
 		c.AR60, c.AR90, c.ARStmtBalance, c.ARStmtFlag,
-		c.UpdatedAt, c.ID, c.ShopID,
+		c.UpdatedAt, c.ID, c.ShopID, expectedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update customer: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrStaleUpdate
 	}
 	return nil
 }
