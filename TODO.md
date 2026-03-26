@@ -182,6 +182,16 @@ These existed in the legacy system but may not be needed in the new one:
 - [ ] **Verify all DBF imports** — run import with `-v` against real data, check for any unmapped or skipped fields
 - [ ] **SCHEDULE.DBF** — scheduling data (pending schema design)
 
+## Concurrency Control
+
+- [ ] **Optimistic locking on updates** — currently all entity updates (work orders, customers, parts, suppliers, sales, settings) use last-write-wins with no conflict detection. Two users editing the same record simultaneously will silently overwrite each other's changes. Fix: include `updated_at` in the PUT request payload, add `AND updated_at = $expected` to the UPDATE WHERE clause, return `409 Conflict` if 0 rows affected. Frontend should display "Record modified by another user — please refresh."
+- [ ] **RecalcTotals race condition** — if two users add/remove lines on the same work order simultaneously, concurrent `RecalcTotals` calls could produce stale results. Consider wrapping line mutation + recalc in a database transaction with `SELECT ... FOR UPDATE` on the work order row.
+
+> **What is already safe:**
+> - Invoice/sale number generation uses atomic `UPDATE ... RETURNING` (no duplicates)
+> - AR auto-post uses a unique partial index on `work_order_id` (no double-posting)
+> - Individual SQL statements are atomic at the PostgreSQL level
+
 ## Completed
 
 - [x] Customers CRUD + vehicles
