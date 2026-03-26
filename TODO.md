@@ -22,7 +22,29 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [x] **Interest charges** — apply `shop_settings.ar_interest_rate` to overdue balances (30+ days)
 - [x] **Statement generation** — generate/print customer AR statements
 - [ ] **AR delay processing** — wire `shop_settings.ar_delay_processing` flag to guard individual aging/interest/statement buttons when enabled (month-end handles it all)
-- [ ] **CAR10–CAR22 investigation** — legacy has ~12 additional AR tables (likely period summaries); determine if they contain data worth importing
+- [x] **CAR10–CAR22 investigation** — see notes below
+- [ ] **AR period snapshots** — save a frozen copy of each customer's AR state during month-end processing; optionally import legacy CAR11–CAR22 snapshots for historical audit trail (see notes below)
+
+> **CAR10–CAR22 details:** All 13 files share the identical schema (ARCUSTPHA,
+> ARCUSTPHN, ARDATE, ARDESC, ARCRDR, ARAMT). They form a rotating 12-month ring
+> buffer of AR snapshots written during legacy month-end processing. CAR.DBF is the
+> working buffer, CAR10 holds the current period summary, and CAR11–CAR22 map to
+> months 11 (Nov) through 22→10 (Oct). Each contains ~330–354 records: a mix of
+> real transactions (invoices/payments with ARCRDR = D/C) and aging-bucket control
+> records (sentinel dates 19600101–19600103 with ARCRDR = 0/1/2 storing bucket
+> totals per customer). During month-end, the slot for the closing month is
+> overwritten with the current AR state, so after 12 months the oldest snapshot is
+> lost. The legacy data covers Sep 2022 – Aug 2023.
+>
+> **Decision needed:** Our new month-end process currently runs aging, interest, and
+> statements but does not persist a snapshot. For audit purposes we should either:
+> (A) create an `ar_period_snapshots` table and write a frozen copy during month-end
+> going forward, or (B) rely on the existing `ar_transactions` table with date-range
+> queries for historical lookups. Option A is more robust for answering "what did the
+> customer owe at the end of March?" since it captures the exact state including
+> aging buckets, interest charges, and any adjustments that may later be modified.
+> If option A is chosen, the legacy CAR11–CAR22 data (~4,000 records) can also be
+> imported into the same table for historical continuity.
 
 ## Month-End Processing
 
