@@ -9,10 +9,12 @@ import {
   FileText,
   CalendarCheck,
   List,
+  UserCog,
   Settings,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,10 +23,11 @@ const navItems = [
   { to: '/suppliers', label: 'Suppliers', icon: Truck },
   { to: '/work-orders', label: 'Work Orders', icon: Wrench },
   { to: '/sales', label: 'Sales', icon: ShoppingCart },
-  { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/month-end', label: 'Month-End', icon: CalendarCheck },
-  { to: '/lookup-codes', label: 'Lookup Codes', icon: List },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/reports', label: 'Reports', icon: FileText, adminOnly: true },
+  { to: '/month-end', label: 'Month-End', icon: CalendarCheck, adminOnly: true },
+  { to: '/lookup-codes', label: 'Lookup Codes', icon: List, adminOnly: true },
+  { to: '/users', label: 'Users', icon: UserCog, adminOnly: true },
+  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ]
 
 interface SidebarProps {
@@ -32,6 +35,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onClose }: SidebarProps) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
   return (
     <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white">
       <div className="flex items-center justify-between p-6">
@@ -50,24 +56,26 @@ export default function Sidebar({ onClose }: SidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onClose}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-white',
-              )
-            }
-          >
-            <item.icon className="h-5 w-5" />
-            {item.label}
-          </NavLink>
-        ))}
+        {navItems
+          .filter((item) => !item.adminOnly || isAdmin)
+          .map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-white',
+                )
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </NavLink>
+          ))}
       </nav>
     </aside>
   )

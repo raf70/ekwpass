@@ -12,6 +12,70 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [x] **Totals recalculation** — shop supplies amount, discount amounts, doc rate, and taxes computed from `shop_settings` whenever lines change
 - [ ] **Technician assignment** — `work_order_technicians` table exists in schema but has no repo, handler, or UI; legacy tracked technician per line (`IDTECH`)
 - [ ] **Invoice print options** — `printTechDetail`, `printInvoiceHours`, `printInvoiceSupplier` settings exist but invoice page doesn't use them yet
+- [ ] **Consolidated invoicing (multi-WO)** — see design notes below
+
+> **Consolidated Invoicing Design Notes**
+>
+> Currently each work order acts as its own invoice (1:1 relationship). The
+> `invoice_number` field on `work_orders` is the customer-facing document number,
+> and the invoice page at `/work-orders/:id/invoice` renders a single WO.
+>
+> To support billing multiple work orders on a single invoice, the recommended
+> approach is to introduce a **separate `invoices` table** as a first-class entity.
+> All WOs on one invoice must belong to the same customer.
+>
+> **New `invoices` table:**
+> - `id`, `shop_id`, `invoice_number` (from `shop_settings.next_invoice_number`),
+>   `customer_id`, `status` (draft/finalized/voided), `date`, aggregated totals
+>   (jobs, parts, shop supplies, discounts, GST, PST, total tax, grand total),
+>   `notes`, timestamps.
+> - Unique constraint on `(shop_id, invoice_number)`.
+>
+> **Schema changes to existing tables:**
+> - `work_orders`: add nullable `invoice_id UUID REFERENCES invoices(id)`.
+>   Existing `invoice_number` stays as the WO reference number.
+> - `ar_transactions`: add nullable `invoice_id UUID REFERENCES invoices(id)`
+>   so AR postings can reference the consolidated invoice instead of individual WOs.
+>
+> **Backend (Go):**
+> - New model, repository, service, and handler for invoices.
+> - Invoice repo methods: List, FindByID, Create, Update, Delete (draft only),
+>   AddWorkOrder, RemoveWorkOrder, RecalcTotals (sum from linked WOs), Finalize.
+> - Invoice service: validates same-customer constraint, validates all WOs are
+>   closed before finalize, orchestrates AR posting on finalize / reversal on void.
+> - API routes: `GET/POST /api/invoices`, `GET/PUT/DELETE /api/invoices/:id`,
+>   `POST/DELETE /api/invoices/:id/work-orders/:woId`,
+>   `POST /api/invoices/:id/finalize`.
+>
+> **Frontend (React):**
+> - New pages: InvoicesPage (list), InvoiceCreatePage (select customer + pick
+>   closed WOs), InvoiceDetailPage (manage linked WOs, finalize), InvoicePrintPage
+>   (combined printable invoice showing all WOs' line items).
+> - Existing single-WO invoice page at `/work-orders/:id/invoice` is preserved
+>   for quick single-WO printing.
+> - Sidebar nav item for Invoices.
+>
+> **Workflow:**
+> 1. User creates a draft invoice, selects customer.
+> 2. Adds one or more closed WOs for that customer (WOs not already on another
+>    invoice).
+> 3. System shows combined line items, totals, and tax breakdown.
+> 4. User finalizes — totals are locked, a single AR transaction is posted.
+> 5. Invoice can be printed as one consolidated document.
+>
+> **AR posting interaction:**
+> - Currently, closing a WO auto-posts an AR transaction for charge-account
+>   customers (`credit_limit > 0`). If a WO is linked to a draft invoice, this
+>   per-WO auto-post should be skipped; AR is posted only when the invoice is
+>   finalized. This prevents double-posting.
+> - For WOs not linked to any invoice, the existing auto-post behavior continues
+>   unchanged.
+>
+> **Migration of existing data:**
+> - Existing work orders that already have `invoice_number` values continue to
+>   work as before. The new `invoice_id` column is nullable, so all existing WOs
+>   simply have `invoice_id = NULL` (meaning they use the legacy 1:1 model).
+> - No data migration is required; the feature is purely additive.
 
 ## Accounts Receivable (AR)
 
@@ -76,9 +140,11 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 
 ## User Management
 
-- [ ] **CRUD** — add, edit, deactivate users
-- [ ] **Role assignment** — admin, technician, front_desk
-- [ ] **Role enforcement** — middleware currently reads role from JWT but handlers don't restrict access by role
+- [x] **CRUD** — list, create, edit (name, email, role, active/inactive), inline editing on Users page
+- [x] **Role assignment** — admin, technician, front_desk; role dropdown on create and edit
+- [x] **Role enforcement** — `RequireRole` middleware guards admin-only routes (users, reports, month-end, lookup code writes, settings writes); sidebar and dashboard hide admin-only elements for non-admin users; `GET /api/settings` and `GET /api/reports/summary` remain open to all roles (needed for shop rate, dashboard counts)
+- [x] **Password reset** — admin can reset any user's password via modal dialog
+- [ ] **Self-service password change** — let users change their own password from a profile page
 
 ## Scheduling
 
@@ -131,3 +197,4 @@ These existed in the legacy system but may not be needed in the new one:
 - [x] Legacy data migration (15 import steps)
 - [x] Month-end processing (AR aging + interest + statements + advance period)
 - [x] Lookup codes CRUD UI + dropdowns in sale/part forms
+- [x] User management (CRUD, roles, password reset, admin-only access)

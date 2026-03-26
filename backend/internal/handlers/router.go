@@ -35,6 +35,7 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 
 	healthH := NewHealthHandler()
 	authH := NewAuthHandler(authService)
+	userH := NewUserHandler(userRepo)
 	customerH := NewCustomerHandler(customerService, arRepo, shopRepo)
 	vehicleH := NewVehicleHandler(vehicleService)
 	workOrderH := NewWorkOrderHandler(workOrderService)
@@ -61,6 +62,14 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 
 	protected.GET("/auth/me", authH.Me)
+
+	users := protected.Group("/users")
+	users.Use(middleware.RequireRole("admin"))
+	users.GET("", userH.List)
+	users.POST("", userH.Create)
+	users.GET("/:id", userH.GetByID)
+	users.PUT("/:id", userH.Update)
+	users.POST("/:id/reset-password", userH.ResetPassword)
 
 	customers := protected.Group("/customers")
 	customers.GET("", customerH.List)
@@ -106,10 +115,14 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	sales.PUT("/:id", saleH.Update)
 	sales.DELETE("/:id", saleH.Delete)
 
+	// Summary and settings reads are available to all authenticated users
+	protected.GET("/reports/summary", reportsH.SummaryReport)
+	protected.GET("/settings", settingsH.Get)
+
 	reports := protected.Group("/reports")
+	reports.Use(middleware.RequireRole("admin"))
 	reports.GET("/customers", reportsH.CustomerReport)
 	reports.GET("/work-orders", reportsH.WorkOrderReport)
-	reports.GET("/summary", reportsH.SummaryReport)
 	reports.GET("/ar-aging", reportsH.ARAgingReport)
 	reports.POST("/ar-aging/process", reportsH.ProcessAging)
 	reports.POST("/ar-aging/interest", reportsH.ApplyInterest)
@@ -124,16 +137,22 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 		}
 		c.JSON(200, shop)
 	})
-	protected.GET("/settings", settingsH.Get)
-	protected.PUT("/settings", settingsH.Update)
-	lookupCodes := protected.Group("/lookup-codes")
-	lookupCodes.GET("", lookupCodeH.List)
-	lookupCodes.GET("/categories", lookupCodeH.Categories)
-	lookupCodes.POST("", lookupCodeH.Create)
-	lookupCodes.PUT("/:id", lookupCodeH.Update)
-	lookupCodes.DELETE("/:id", lookupCodeH.Delete)
 
-	monthEnd := protected.Group("/month-end")
+	// Lookup code reads are open (used by dropdowns in forms for all roles)
+	protected.GET("/lookup-codes", lookupCodeH.List)
+	protected.GET("/lookup-codes/categories", lookupCodeH.Categories)
+
+	adminOnly := protected.Group("")
+	adminOnly.Use(middleware.RequireRole("admin"))
+
+	adminOnly.PUT("/settings", settingsH.Update)
+
+	lookupCodesAdmin := adminOnly.Group("/lookup-codes")
+	lookupCodesAdmin.POST("", lookupCodeH.Create)
+	lookupCodesAdmin.PUT("/:id", lookupCodeH.Update)
+	lookupCodesAdmin.DELETE("/:id", lookupCodeH.Delete)
+
+	monthEnd := adminOnly.Group("/month-end")
 	monthEnd.GET("/preview", monthEndH.Preview)
 	monthEnd.POST("/process", monthEndH.Process)
 

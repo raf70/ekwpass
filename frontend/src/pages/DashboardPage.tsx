@@ -15,6 +15,8 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  const isAdmin = user?.role === 'admin'
+
   const { data: summary } = useQuery({
     queryKey: ['dashboard-summary'],
     queryFn: () => getSummaryReport({}),
@@ -28,6 +30,7 @@ export default function DashboardPage() {
   const { data: arAging } = useQuery({
     queryKey: ['dashboard-ar'],
     queryFn: () => getARAgingReport(),
+    enabled: isAdmin,
   })
 
   const today = new Date().toLocaleDateString('en-CA', {
@@ -69,8 +72,9 @@ export default function DashboardPage() {
       iconBg: 'bg-orange-100',
       iconColor: 'text-orange-600',
       to: '/reports',
+      adminOnly: true,
     },
-  ]
+  ].filter((m) => !m.adminOnly || isAdmin)
 
   return (
     <div>
@@ -130,20 +134,24 @@ export default function DashboardPage() {
             <Truck className="h-4 w-4" />
             Suppliers
           </button>
-          <button
-            onClick={() => navigate('/reports')}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
-          >
-            <FileText className="h-4 w-4" />
-            Reports
-          </button>
-          <button
-            onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </button>
+          {user?.role === 'admin' && (
+            <>
+              <button
+                onClick={() => navigate('/reports')}
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+              >
+                <FileText className="h-4 w-4" />
+                Reports
+              </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

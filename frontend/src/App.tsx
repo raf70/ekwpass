@@ -26,6 +26,7 @@ import StatementPage from './pages/StatementPage'
 import SettingsPage from './pages/SettingsPage'
 import MonthEndPage from './pages/MonthEndPage'
 import LookupCodesPage from './pages/LookupCodesPage'
+import UsersPage from './pages/UsersPage'
 
 function ProtectedRoute() {
   const { user, isLoading } = useAuth()
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="month-end" element={<MonthEndPage />} />
         <Route path="lookup-codes" element={<LookupCodesPage />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
