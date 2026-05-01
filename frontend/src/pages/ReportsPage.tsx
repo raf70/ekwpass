@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Users, ClipboardList, BarChart3, DollarSign, RefreshCw, FileText } from 'lucide-react'
+import { Loader2, Users, ClipboardList, BarChart3, DollarSign, RefreshCw, FileText, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getCustomerReport,
   getWorkOrderReport,
   getSummaryReport,
   getARAgingReport,
+  exportCustomerReportCSV,
+  exportWorkOrderReportCSV,
+  exportSummaryReportCSV,
+  exportARAgingReportCSV,
   processARAging,
   applyARInterest,
   generateStatements,
@@ -33,6 +37,15 @@ function fmtDate(d: string | null | undefined) {
   return new Date(d).toLocaleDateString('en-CA')
 }
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function StatusBadge({ status }: { status: string }) {
   const s: Record<string, string> = {
     open: 'bg-blue-100 text-blue-800',
@@ -56,6 +69,17 @@ function CustomerReport() {
     queryFn: () => getCustomerReport(arOnly),
   })
 
+  const exportMut = useMutation({
+    mutationFn: () => exportCustomerReportCSV(arOnly),
+    onSuccess: (blob) => {
+      const datePart = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `customer_report_${datePart}.csv`)
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.error || 'Failed to export customer report.')
+    },
+  })
+
   const rows: CustomerReportRow[] = data ?? []
   const totalAR = rows.reduce((s, r) => s + r.arBalance, 0)
   const totalYTD = rows.reduce((s, r) => s + r.ytdSales, 0)
@@ -72,7 +96,17 @@ function CustomerReport() {
           />
           Only show customers with AR balance
         </label>
-        <span className="ml-auto text-sm text-slate-500">{rows.length} customer(s)</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => exportMut.mutate()}
+            disabled={exportMut.isPending || isLoading}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export CSV
+          </button>
+          <span className="text-sm text-slate-500">{rows.length} customer(s)</span>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -141,6 +175,22 @@ function WorkOrderReport() {
     queryFn: () => getWorkOrderReport({ status: status || undefined, from: from || undefined, to: to || undefined }),
   })
 
+  const exportMut = useMutation({
+    mutationFn: () =>
+      exportWorkOrderReportCSV({
+        status: status || undefined,
+        from: from || undefined,
+        to: to || undefined,
+      }),
+    onSuccess: (blob) => {
+      const datePart = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `work_order_report_${datePart}.csv`)
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.error || 'Failed to export work order report.')
+    },
+  })
+
   const rows: WorkOrderReportRow[] = data ?? []
   const totalJobs = rows.reduce((s, r) => s + r.jobsTotal, 0)
   const totalParts = rows.reduce((s, r) => s + r.partsTotal, 0)
@@ -169,7 +219,17 @@ function WorkOrderReport() {
           <label className="mb-1 block text-xs font-medium text-slate-500">To</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputClass} />
         </div>
-        <span className="ml-auto text-sm text-slate-500">{rows.length} order(s)</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => exportMut.mutate()}
+            disabled={exportMut.isPending || isLoading}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export CSV
+          </button>
+          <span className="text-sm text-slate-500">{rows.length} order(s)</span>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -240,6 +300,21 @@ function SummaryReportTab() {
 
   const inputClass = 'rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20'
 
+  const exportMut = useMutation({
+    mutationFn: () =>
+      exportSummaryReportCSV({
+        from: from || undefined,
+        to: to || undefined,
+      }),
+    onSuccess: (blob) => {
+      const datePart = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `summary_report_${datePart}.csv`)
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.error || 'Failed to export summary report.')
+    },
+  })
+
   function Row({ label, value, bold }: { label: string; value: string | number; bold?: boolean }) {
     return (
       <div className="flex justify-between border-b border-slate-100 py-2.5 last:border-0">
@@ -262,6 +337,17 @@ function SummaryReportTab() {
           <label className="mb-1 block text-xs font-medium text-slate-500">To</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputClass} />
         </div>
+      </div>
+
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={() => exportMut.mutate()}
+          disabled={exportMut.isPending || isLoading}
+          className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+        >
+          {exportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Export CSV
+        </button>
       </div>
 
       {isLoading ? (
@@ -324,6 +410,18 @@ function ARAgingReport() {
     queryFn: () => getARAgingReport(),
   })
 
+  const exportMut = useMutation({
+    mutationFn: () => exportARAgingReportCSV(),
+    onSuccess: (blob) => {
+      const datePart = new Date().toISOString().slice(0, 10)
+      downloadBlob(blob, `ar_aging_report_${datePart}.csv`)
+      setStatusMsg({ text: 'AR Aging CSV exported.', ok: true })
+    },
+    onError: (err: any) => {
+      setStatusMsg({ text: err.response?.data?.error || 'Failed to export AR Aging report.', ok: false })
+    },
+  })
+
   const agingMutation = useMutation({
     mutationFn: processARAging,
     onSuccess: (result) => {
@@ -382,7 +480,7 @@ function ARAgingReport() {
     }
   }
 
-  const busy = agingMutation.isPending || interestMutation.isPending || stmtMutation.isPending
+  const busy = agingMutation.isPending || interestMutation.isPending || stmtMutation.isPending || exportMut.isPending
 
   return (
     <div>
@@ -395,6 +493,14 @@ function ARAgingReport() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportMut.mutate()}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exportMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export CSV
+          </button>
           <button
             onClick={handleRunAging}
             disabled={busy}
