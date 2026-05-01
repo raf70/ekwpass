@@ -11,6 +11,10 @@ import (
 
 func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
+	// Trust Docker and loopback so X-Forwarded-Proto is honored behind TLS-terminating proxies.
+	_ = r.SetTrustedProxies([]string{
+		"127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "::1", "fe80::/10",
+	})
 	r.Use(middleware.CORSMiddleware())
 
 	userRepo := repositories.NewUserRepo(pool)
@@ -122,11 +126,16 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	reports := protected.Group("/reports")
 	reports.Use(middleware.RequireRole("admin"))
 	reports.GET("/customers", reportsH.CustomerReport)
+	reports.GET("/customers/export", reportsH.CustomerReportExport)
 	reports.GET("/work-orders", reportsH.WorkOrderReport)
+	reports.GET("/work-orders/export", reportsH.WorkOrderReportExport)
 	reports.GET("/ar-aging", reportsH.ARAgingReport)
+	reports.GET("/ar-aging/export", reportsH.ARAgingReportExport)
 	reports.POST("/ar-aging/process", reportsH.ProcessAging)
 	reports.POST("/ar-aging/interest", reportsH.ApplyInterest)
 	reports.POST("/ar-aging/statements", reportsH.GenerateStatements)
+
+	protected.GET("/reports/summary/export", reportsH.SummaryReportExport)
 
 	protected.GET("/shop", func(c *gin.Context) {
 		claims := middleware.GetClaims(c)

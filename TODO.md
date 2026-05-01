@@ -158,7 +158,7 @@ Tracking remaining work to reach feature parity with the legacy DOS application.
 - [x] **Work order report** — WO summary
 - [x] **Summary report** — dashboard metrics
 - [x] **AR aging report** — aging buckets, run aging, interest, statements
-- [ ] **Report export (PDF/CSV)** — no export functionality on any report
+- [x] **Report export (CSV)** — export Customer, Work Order, Summary, and AR Aging reports as CSV (PDF not implemented yet)
 - [ ] **Technician report** — legacy had TECHRPT.DBF; productivity/hours by technician
 - [ ] **Sales report** — sales summary by date range, department, payment type
 - [ ] **Parts report** — inventory valuation, reorder report, slow-moving items
