@@ -1,0 +1,42 @@
+# Production stack: DB and backend are not published on the host; only the
+# frontend (nginx + static) listens on 127.0.0.1:3000 for a host-level reverse
+# proxy with TLS (see deploy/ekwpass-host-nginx.conf + deploy/vps-https.sh).
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+# Replace POSTGRES_PASSWORD and JWT_SECRET before going live; keep DATABASE_URL in sync.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ekwpass
+      POSTGRES_USER: ekwpass
+      POSTGRES_PASSWORD: ekwpass_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ekwpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgres://ekwpass:ekwpass_dev@db:5432/ekwpass?sslmode=disable
+      JWT_SECRET: dev-secret-change-in-production
+      PORT: "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
