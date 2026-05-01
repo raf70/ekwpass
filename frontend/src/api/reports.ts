@@ -93,6 +93,44 @@ export async function getARAgingReport(): Promise<ARAgingSummary> {
   return data
 }
 
+export async function exportCustomerReportCSV(arOnly: boolean): Promise<Blob> {
+  const { data } = await client.get('/api/reports/customers/export', {
+    params: { arOnly: arOnly ? 'true' : undefined },
+    responseType: 'blob',
+  })
+  return data as Blob
+}
+
+export async function exportWorkOrderReportCSV(params: {
+  status?: string
+  from?: string
+  to?: string
+}): Promise<Blob> {
+  const { data } = await client.get('/api/reports/work-orders/export', {
+    params,
+    responseType: 'blob',
+  })
+  return data as Blob
+}
+
+export async function exportSummaryReportCSV(params: {
+  from?: string
+  to?: string
+}): Promise<Blob> {
+  const { data } = await client.get('/api/reports/summary/export', {
+    params,
+    responseType: 'blob',
+  })
+  return data as Blob
+}
+
+export async function exportARAgingReportCSV(): Promise<Blob> {
+  const { data } = await client.get('/api/reports/ar-aging/export', {
+    responseType: 'blob',
+  })
+  return data as Blob
+}
+
 export async function processARAging(): Promise<{ customersProcessed: number }> {
   const { data } = await client.post<{ customersProcessed: number }>('/api/reports/ar-aging/process')
   return data
